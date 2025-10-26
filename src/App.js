@@ -1,16 +1,18 @@
 import * as React from "react";
 import { createRoot } from "react-dom/client";
+import { useControls } from 'leva'
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { Grid, OrbitControls, Edges } from '@react-three/drei';
+import { Grid, OrbitControls, Edges, Merged, Stats, PerformanceMonitor } from '@react-three/drei';
 import { useRef, useState, useEffect } from 'react';
 import * as THREE from 'three';
 
+import { Perf } from 'r3f-perf'
 
 function Scene({ setHoveredCell, setTargetPosition, setTooltipPos }) {
   const { scene, camera, pointer, size } = useThree();
   const [isMouseMoving, setIsMouseMoving] = useState(false);
 
-  
+
   useEffect(() => {
     const handleMouseMove = () => {
       setIsMouseMoving(true);
@@ -49,33 +51,6 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos }) {
   return null;
 }
 
-function InstancedCells({ cells, hoveredCell }) {
-  const meshRef = useRef();
-  const color = new THREE.Color();
-
-  useEffect(() => {
-    cells.forEach((cell, i) => {
-      const matrix = new THREE.Matrix4();
-      matrix.setPosition(...cell.pos);
-      meshRef.current.setMatrixAt(i, matrix);
-
-      // Set color per instance
-      color.set(cell.base_color);
-      meshRef.current.setColorAt(i, color);
-    });
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    meshRef.current.instanceColor.needsUpdate = true;
-  }, [cells]);
-
-  return (
-    <instancedMesh
-      ref={meshRef}
-      args={[new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ vertexColors: true }), cells.length]}
-    />
-  );
-}
-
-
 function Cell({ position, name, base_color, edge_color, isHovered, value }) {
   const meshRef = useRef();
   return (
@@ -93,12 +68,17 @@ function Cell({ position, name, base_color, edge_color, isHovered, value }) {
 }
 
 function App() {
+  
+  const { ...controlProps } = useControls('controls', {
+    enablePerf: { label: 'Enable Performance', value: false },
+  })
+
   const [hoveredCell, setHoveredCell] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0, z: 0 });
   const [targetPosition, setTargetPosition] = useState(null);
 
   const cells = [];
-  const size = 8;
+  const size = 10;
   for (let x = 0; x < size; x++) {
     for (let y = 0; y < size; y++) {
       for (let z = 0; z < size; z++) {
@@ -122,23 +102,44 @@ function App() {
       id="canvas-container"
       style={{ position: 'relative', width: '100vw', height: '100vh' }}
     >
-      <Canvas camera={{ position: [0, 5, 10], fov: 75 }}>
-        <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} intensity={1} />
-        <Grid infinite={true} cellSize={1} sectionSize={2} />
-        <Scene setHoveredCell={setHoveredCell} setTargetPosition={setTargetPosition} setTooltipPos={setTooltipPos}/>
-        {cells.map((cell, i) => (
-          <Cell
-            key={i}
-            position={cell.pos}
-            name={cell.name}
-            value={cell.value}
-            base_color={cell.base_color}
-            edge_color={cell.edge_color}
-            isHovered={hoveredCell?.name === cell.name}
-          />
-        ))}
-        <OrbitControls enableDamping={false} dampingFactor={0} />
+      <Canvas camera={{ position: [0, 5, 10] }}>
+        <PerformanceMonitor>
+          <ambientLight intensity={0.5} />
+          <pointLight position={[10, 10, 10]} intensity={1} />
+          <Grid infinite={true} cellSize={1} sectionSize={2} />
+          <Scene setHoveredCell={setHoveredCell} setTargetPosition={setTargetPosition} setTooltipPos={setTooltipPos} />
+          {/* <Merged meshes={ cells }>
+            {(cells) => (
+              <>
+                {cells.map((cell, i) => (
+                  <Cell
+                    key={i}
+                    position={cell.pos}
+                    name={cell.name}
+                    value={cell.value}
+                    base_color={cell.base_color}
+                    edge_color={cell.edge_color}
+                    isHovered={hoveredCell?.name === cell.name}
+                  />
+                ))}
+              </>
+            )}
+          </Merged> */}
+          {cells.map((cell, i) => (
+            <Cell
+              key={i}
+              position={cell.pos}
+              name={cell.name}
+              value={cell.value}
+              base_color={cell.base_color}
+              edge_color={cell.edge_color}
+              isHovered={hoveredCell?.name === cell.name}
+            />
+          ))}
+          <OrbitControls enableDamping={false} dampingFactor={0} />
+          {/* <Stats /> */}
+        </PerformanceMonitor>
+        {controlProps.enablePerf ? <Perf position="bottom-left" showGraph={false} /> : <></>}
       </Canvas>
       {hoveredCell && (
         <div

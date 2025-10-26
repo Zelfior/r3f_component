@@ -14,7 +14,12 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-scripts": "^5.0.1",
-    "three": "0.159.0"
+    "three": "0.159.0",
+    
+    "@use-gesture/react": "10.2.22",
+    "stats.js": "0.17.0",
+    "leva": "0.9.34",
+    "r3f-perf": "6.5.0"
   },
   "scripts": {
     "start": "react-scripts start",
