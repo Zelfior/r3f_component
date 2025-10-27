@@ -1,0 +1,1 @@
+esbuild src/App.js --bundle --format=esm --minify --outfile=ReactThreeFiber.bundle.js --loader:.js=jsx

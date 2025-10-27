@@ -3,10 +3,45 @@ import { createRoot } from "react-dom/client";
 import { useControls } from 'leva'
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Grid, OrbitControls, Edges, Merged, Stats, PerformanceMonitor } from '@react-three/drei';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
 import { Perf } from 'r3f-perf'
+
+function CustomMesh({ vertices, indices, name, color, edge_color, value, isHovered }) {
+  const positionArray = useMemo(() => new Float32Array(vertices.flat()), [vertices]);
+  const indexArray = useMemo(() => new Uint16Array(indices.flat()), [indices]);
+
+  return (
+    <mesh name={name} userData={{ value, name }}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          array={positionArray}
+          count={positionArray.length / 3}
+          itemSize={3}
+        />
+        <bufferAttribute
+          attach="index"
+          array={indexArray}
+          count={indexArray.length}
+          itemSize={1}
+        />
+      </bufferGeometry>
+      <meshStandardMaterial color={color}
+      // transparent={true}
+      // opacity={0.5} 
+      />
+      <Edges
+        linewidth={1}
+        scale={1.}
+        threshold={15}
+        color={edge_color}
+      />
+    </mesh>
+  );
+}
+
 
 function Scene({ setHoveredCell, setTargetPosition, setTooltipPos }) {
   const { scene, camera, pointer, size } = useThree();
@@ -67,35 +102,21 @@ function Cell({ position, name, base_color, edge_color, isHovered, value }) {
   );
 }
 
-function App() {
-  
-  const { ...controlProps } = useControls('controls', {
-    enablePerf: { label: 'Enable Performance', value: false },
-  })
+function render({ model }) {
+  let [vertices, pySetVertices] = model.useState("vertices");
+  let [indices, pySetObjects] = model.useState("objects");
+  let [colors, pySetColors] = model.useState("colors");
+  let [edge_colors, pySetEdgeColors] = model.useState("edge_colors");
+  let [values, pySetValues] = model.useState("values");
+  let [names, pySetNames] = model.useState("names");
+
+  // const { ...controlProps } = useControls('controls', {
+  //   enablePerf: { label: 'Enable Performance', value: false },
+  // })
 
   const [hoveredCell, setHoveredCell] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0, z: 0 });
   const [targetPosition, setTargetPosition] = useState(null);
-
-  const cells = [];
-  const size = 10;
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
-      for (let z = 0; z < size; z++) {
-        cells.push({
-          pos: [x, y, z],
-          name: `(${x}, ${y}, ${z})`,
-          base_color: `rgb(${Math.round((x / (size - 1)) * 255)}, ${Math.round((y / (size - 1)) * 255)}, ${Math.round((z / (size - 1)) * 255)})`,
-          edge_color: `rgb(
-            ${Math.max(0, Math.round((x / (size - 1)) * 255) - 20)},
-            ${Math.max(0, Math.round((y / (size - 1)) * 255) - 20)},
-            ${Math.max(0, Math.round((z / (size - 1)) * 255) - 20)}
-          )`,
-          value: x + y * size + z * size * size,
-        });
-      }
-    }
-  }
 
   return (
     <div
@@ -103,43 +124,29 @@ function App() {
       style={{ position: 'relative', width: '100vw', height: '100vh' }}
     >
       <Canvas camera={{ position: [0, 5, 10] }}>
-        <PerformanceMonitor>
-          <ambientLight intensity={0.5} />
-          <pointLight position={[10, 10, 10]} intensity={1} />
-          <Grid infinite={true} cellSize={1} sectionSize={2} />
-          <Scene setHoveredCell={setHoveredCell} setTargetPosition={setTargetPosition} setTooltipPos={setTooltipPos} />
-          {/* <Merged meshes={ cells }>
-            {(cells) => (
-              <>
-                {cells.map((cell, i) => (
-                  <Cell
-                    key={i}
-                    position={cell.pos}
-                    name={cell.name}
-                    value={cell.value}
-                    base_color={cell.base_color}
-                    edge_color={cell.edge_color}
-                    isHovered={hoveredCell?.name === cell.name}
-                  />
-                ))}
-              </>
-            )}
-          </Merged> */}
-          {cells.map((cell, i) => (
-            <Cell
+        {/* <PerformanceMonitor> */}
+        <ambientLight intensity={0.5} />
+        <pointLight position={[10, 10, 10]} intensity={1} />
+        <Grid infinite={true} cellSize={1} sectionSize={2} />
+        <Scene setHoveredCell={setHoveredCell} setTargetPosition={setTargetPosition} setTooltipPos={setTooltipPos} />
+        {/* <Merged geometries> */}
+          {Array.from({ length: Math.floor(names.length/2) }, (_, i) => (
+            <CustomMesh
               key={i}
-              position={cell.pos}
-              name={cell.name}
-              value={cell.value}
-              base_color={cell.base_color}
-              edge_color={cell.edge_color}
-              isHovered={hoveredCell?.name === cell.name}
+              name={names[i]}
+              vertices={vertices[i]}
+              indices={indices[i]}
+              color={colors[i]}
+              edgeColor={edge_colors[i]}
+              value={values[i]}
+              isHovered={hoveredCell && hoveredCell.name === names[i]} // Replace with your logic
             />
           ))}
-          <OrbitControls enableDamping={false} dampingFactor={0} />
-          {/* <Stats /> */}
-        </PerformanceMonitor>
-        {controlProps.enablePerf ? <Perf position="bottom-left" showGraph={false} /> : <></>}
+        {/* </Merged> */}
+        <OrbitControls enableDamping={false} dampingFactor={0} />
+        {/* <Stats /> */}
+        {/* </PerformanceMonitor> */}
+        {/* {controlProps.enablePerf ? <Perf position="bottom-left" showGraph={false} /> : <></>} */}
       </Canvas>
       {hoveredCell && (
         <div
@@ -172,4 +179,4 @@ function App() {
   );
 }
 
-export default { render: () => <App />, React, createRoot };
+export default { render, React, createRoot };
