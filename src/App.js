@@ -23,10 +23,10 @@ function MergedMesh({
 
     const mergedData = useMemo(() => {
         const geometries = [];
+        const edgesGeometries = [];
         const regionMap = [];
 
         let vertexOffset = 0;
-        console.log(colors);
         names.forEach((name, i) => {
             const geom = new THREE.BufferGeometry();
             const positionArray = new Float32Array(vertices[i].flat());
@@ -50,25 +50,41 @@ function MergedMesh({
             geom.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
 
             regionMap.push({
-            id: i,
-            name,
-            value: values[i],
-            idOffset: vertexOffset,
-            vertexCount: vertices[i].length,
+                id: i,
+                name,
+                value: values[i],
+                idOffset: vertexOffset,
+                vertexCount: vertices[i].length,
             });
 
             vertexOffset += vertices[i].length; // increment by number of vertices
             geometries.push(geom);
+            edgesGeometries.push(new THREE.EdgesGeometry(geom));
         });
 
+        const mergedEdges = BufferGeometryUtils.mergeGeometries(edgesGeometries, false);
+
+        const mergedEdgesColorArray = new Float32Array(mergedEdges.attributes.position.count * 3);
+        let offset = 0;
+        edgesGeometries.forEach((edgeGeom, i) => {
+            const color = edge_colors[i];
+            for (let j = 0; j < edgeGeom.attributes.position.count; j++) {
+                mergedEdgesColorArray[(offset + j) * 3] = color[0];
+                mergedEdgesColorArray[(offset + j) * 3 + 1] = color[1];
+                mergedEdgesColorArray[(offset + j) * 3 + 2] = color[2];
+            }
+            offset += edgeGeom.attributes.position.count;
+        });
+        mergedEdges.setAttribute('color', new THREE.BufferAttribute(mergedEdgesColorArray, 3));
+
         const merged = BufferGeometryUtils.mergeGeometries(geometries, false);
-        return { geometry: merged, regionMap };
+
+        return { geometry: merged, mergedEdges: mergedEdges, regionMap };
     }, [vertices, indices, colors, names, values]);
 
-    const { geometry, regionMap } = mergedData;
+    const { geometry, regionMap, mergedEdges } = mergedData;
 
     useEffect(() => {
-        console.log(hoveredName, geometry);
         if (!geometry) return;
 
         const colorAttr = geometry.getAttribute("color");
@@ -80,10 +96,10 @@ function MergedMesh({
         regionMap.forEach((region, i) => {
             const color = hoveredName === names[i] ? edge_colors[i] : colors[i];
             for (let j = 0; j < region.vertexCount; j++) {
-            const idx = (region.idOffset + j) * 3;
-            newColorArray[idx] = color[0];
-            newColorArray[idx + 1] = color[1];
-            newColorArray[idx + 2] = color[2];
+                const idx = (region.idOffset + j) * 3;
+                newColorArray[idx] = color[0];
+                newColorArray[idx + 1] = color[1];
+                newColorArray[idx + 2] = color[2];
             }
         });
 
@@ -98,12 +114,14 @@ function MergedMesh({
     if (setRegionInfo) setRegionInfo(regionMap);
 
     return (
-        <mesh geometry={geometry}>
-            <meshStandardMaterial
-                vertexColors={true}
-            />
-            <Edges linewidth={1} scale={1} threshold={15} color={edge_colors[0]} />
-        </mesh>
+        <group>
+            <mesh geometry={geometry}>
+                <meshStandardMaterial vertexColors />
+            </mesh>
+            <lineSegments geometry={mergedEdges}>
+                <lineBasicMaterial vertexColors linewidth={12} />
+            </lineSegments>
+        </group>
     );
 }
 
@@ -132,8 +150,12 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap }) 
         raycaster.setFromCamera(pointer, camera);
         const intersects = raycaster.intersectObjects(scene.children, true);
 
-        if (intersects.length > 0) {
-            const { object, face, point } = intersects[0];
+        const intersectedObject = intersects.find(
+            ({ object }) => object.geometry && object.geometry.attributes.regionId
+        );
+
+        if (intersectedObject) {
+            const { object, face, point } = intersectedObject;
             setTargetPosition(point);
 
             if (object.geometry && object.geometry.attributes.regionId) {
