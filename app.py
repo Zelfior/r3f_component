@@ -40,23 +40,19 @@ if __name__ == "__main__":
         Returns:
         - A PyVista PolyData object representing the grid of cubes.
         """
-        # Create a single cube
-        cube = pv.Cube()
-
         # Create a grid of cubes
         cubes = []
         for i in range(n):
             for j in range(n):
                 for k in range(n):
                     # Translate the cube to its position in the grid
-                    translated_cube = cube.copy()
-                    translated_cube = translated_cube.translate([i * spacing, j * spacing, k * spacing])
-                    cubes.append(translated_cube.triangulate())
+                    cubes.append(pv.Cube(center=(i * spacing, j * spacing, k * spacing)).triangulate())
 
         return cubes
 
     # Create the 3x3x3 grid of cubes
-    cube_grid = create_cube_grid(n=10, spacing=1.)
+    cube_grid = create_cube_grid(n=15, spacing=1.)
+    print("Number of cubes created:", len(cube_grid))
 
     def get_faces(mesh):
         faces = np.array(mesh.faces).reshape((-1, 4))[:, 1:]
@@ -67,9 +63,14 @@ if __name__ == "__main__":
 
     centers = np.array([mesh.center for mesh in cube_grid])
 
-    colors = (centers - centers.min(axis=0)) / (centers.max(axis=0) - centers.min(axis=0))
+    range_ = centers.max(axis=0) - centers.min(axis=0)
+
+    if np.any(range_ == 0):
+        range_[range_ == 0] = 1.0
+
+    colors = (centers - centers.min(axis=0)) / range_
     flat_colors = colors.flatten()
-    edge_colors = np.where(flat_colors - 0.1 < 0, 0, flat_colors - 0.1).reshape(colors.shape)
+    edge_colors = np.where(flat_colors - 0.2 < 0, 0, flat_colors - 0.2).reshape(colors.shape)
 
     count = len(vertices)
     rtf = ReactThreeFiber(sizing_mode='stretch_both')
