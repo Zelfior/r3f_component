@@ -1,5 +1,4 @@
 import panel as pn
-import panel_material_ui as pmui
 import param
 
 import numpy as np
@@ -9,9 +8,10 @@ from panel.custom import ReactComponent
 
 pn.extension()
 
+
 class ReactThreeFiber(ReactComponent):
 
-    _esm = 'ReactThreeFiber.bundle.js'
+    _esm = "ReactThreeFiber.bundle.js"
 
     vertices = param.List()
     objects = param.List()
@@ -20,6 +20,9 @@ class ReactThreeFiber(ReactComponent):
     values = param.List()
     names = param.List()
     # positions = param.List()
+
+    intensity = param.Number(3.2)
+
 
 if __name__ == "__main__":
 
@@ -46,12 +49,16 @@ if __name__ == "__main__":
             for j in range(n):
                 for k in range(n):
                     # Translate the cube to its position in the grid
-                    cubes.append(pv.Cube(center=(i * spacing, j * spacing, k * spacing)).triangulate())
+                    cubes.append(
+                        pv.Cube(
+                            center=(i * spacing, j * spacing, k * spacing)
+                        ).triangulate()
+                    )
 
         return cubes
 
     # Create the 3x3x3 grid of cubes
-    cube_grid = create_cube_grid(n=15, spacing=1.)
+    cube_grid = create_cube_grid(n=15, spacing=1.0)
     print("Number of cubes created:", len(cube_grid))
 
     def get_faces(mesh):
@@ -70,10 +77,12 @@ if __name__ == "__main__":
 
     colors = (centers - centers.min(axis=0)) / range_
     flat_colors = colors.flatten()
-    edge_colors = np.where(flat_colors - 0.2 < 0, 0, flat_colors - 0.2).reshape(colors.shape)
+    edge_colors = np.where(flat_colors - 0.2 < 0, 0, flat_colors - 0.2).reshape(
+        colors.shape
+    )
 
     count = len(vertices)
-    rtf = ReactThreeFiber(sizing_mode='stretch_both')
+    rtf = ReactThreeFiber(sizing_mode="stretch_both")
 
     rtf.names += list(f"Object {i}" for i in range(count))
     rtf.values += list(range(count))

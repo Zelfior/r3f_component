@@ -2,13 +2,29 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { useControls } from 'leva'
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { Grid, OrbitControls, Edges, Merged, Stats, PerformanceMonitor } from '@react-three/drei';
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { Grid, OrbitControls, Stats, PerformanceMonitor, GizmoHelper, GizmoViewport, PivotControls } from '@react-three/drei';
+import { useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
 import { Perf } from 'r3f-perf'
 
 import BufferGeometryUtils from './BufferGeometryUtils.js';
+
+
+function GreenSquare() {
+  const geometry = new THREE.PlaneGeometry(1, 1);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x00ff00, // Green
+    side: THREE.DoubleSide,
+  });
+
+  return (
+    <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 1]}>
+      <primitive object={geometry} />
+      <primitive object={material} />
+    </mesh>
+  );
+}
 
 function MergedMesh({
     vertices,
@@ -116,12 +132,12 @@ function MergedMesh({
     return (
         <group>
             <mesh geometry={geometry}>
-                <meshStandardMaterial vertexColors />
+                <meshStandardMaterial emissive vertexColors emissiveIntensity={20.5} />
             </mesh>
             <lineSegments geometry={mergedEdges}>
-                <lineBasicMaterial vertexColors linewidth={12} />
-            </lineSegments>
-        </group>
+                 <lineBasicMaterial vertexColors linewidth={1} />
+             </lineSegments>
+         </group>
     );
 }
 
@@ -174,6 +190,8 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap }) 
 }
 
 function render({ model }) {
+    let [intensity, pyIntensity] = model.useState("intensity");
+
     let [vertices, pySetVertices] = model.useState("vertices");
     let [indices, pySetObjects] = model.useState("objects");
     let [colors, pySetColors] = model.useState("colors");
@@ -197,9 +215,9 @@ function render({ model }) {
             id="canvas-container"
             style={{ position: "relative", width: "100vw", height: "100vh" }}
         >
-            <Canvas camera={{ position: [0, 5, 10] }}>
+            <Canvas camera={{ position: [0, 5, 10] }} linear flat>
                 <PerformanceMonitor>
-                    <ambientLight intensity={1.} />
+                    <ambientLight intensity={intensity} />
                     <pointLight position={[10, 10, 10]} intensity={1} />
                     <Grid infinite={true} cellSize={1} sectionSize={2} />
                     <Scene
@@ -220,6 +238,19 @@ function render({ model }) {
                     />
                     <OrbitControls enableDamping={false} dampingFactor={0} />
                     <Stats />
+                    <GizmoHelper
+                        alignment="bottom-right" // widget alignment within scene
+                        margin={[80, 80]} // widget margins (X, Y)
+                        // onUpdate={} /* called during camera animation  */
+                        // onTarget={}/* return current camera target (e.g. from orbit controls) to center animation */
+                        // renderPriority={}/* use renderPriority to prevent the helper from disappearing if there is another useFrame(..., 1)*/
+                        >
+                        <GizmoViewport axisColors={['red', 'green', 'blue']} labelColor="black" />
+                        {/* alternative: <GizmoViewcube /> */}
+                    </GizmoHelper>
+                    <PivotControls>
+                        <GreenSquare/>
+                    </PivotControls>
                 </PerformanceMonitor>
                 {controlProps.enablePerf ? (
                     <Perf position="bottom-left" showGraph={false} />
