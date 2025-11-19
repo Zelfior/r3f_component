@@ -14,7 +14,8 @@ import BufferGeometryUtils from './BufferGeometryUtils.js';
 function GreenSquare() {
   const geometry = new THREE.PlaneGeometry(1, 1);
   const material = new THREE.MeshBasicMaterial({
-    color: 0x00ff00, // Green
+    color: 0xdddddd, // Green
+    wireframe: true,
     side: THREE.DoubleSide,
   });
 
@@ -43,7 +44,7 @@ function MergedMesh({
         const regionMap = [];
 
         let vertexOffset = 0;
-        names.forEach((name, i) => {
+        vertices.forEach((_, i) => {
             const geom = new THREE.BufferGeometry();
             const positionArray = new Float32Array(vertices[i].flat());
             const indexArray = new Uint16Array(indices[i].flat());
@@ -67,7 +68,7 @@ function MergedMesh({
 
             regionMap.push({
                 id: i,
-                name,
+                name: names[i],
                 value: values[i],
                 idOffset: vertexOffset,
                 vertexCount: vertices[i].length,
@@ -219,7 +220,8 @@ const controlRef = useRef();
             onDragEnd={() => {
                 setIsDraggingGizmo(false); 
                 pySetMatrix(controlRef.current.matrix.toArray());
-            }}>
+            }}
+            disableScaling={true}>
             <GreenSquare/>
         </PivotControls>
     </>
@@ -237,18 +239,11 @@ function render({ model }) {
     let [names, pySetNames] = model.useState("names");
     let [matrix, pySetMatrix] = model.useState("matrix");
 
-
-    const { ...controlProps } = useControls("controls", {
-        enablePerf: { label: "Enable Performance", value: false },
-    });
-
     const [hoveredCell, setHoveredCell] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0, z: 0 });
     const [targetPosition, setTargetPosition] = useState(null);
 
     const [regionMap, setRegionMap] = useState([]);
-
-    const mat = new THREE.Matrix4()
 
     return (
         <div
@@ -256,34 +251,27 @@ function render({ model }) {
             style={{ position: "relative", width: "100vw", height: "100vh" }}
         >
             <Canvas camera={{ position: [0, 5, 10] }} linear flat>
-                <PerformanceMonitor>
-                    <ambientLight intensity={intensity} />
-                    <pointLight position={[10, 10, 10]} intensity={1} />
-                    <Grid infinite={true} cellSize={1} sectionSize={2} />
-                    <Scene
-                        setHoveredCell={setHoveredCell}
-                        setTargetPosition={setTargetPosition}
-                        setTooltipPos={setTooltipPos}
-                        regionMap={regionMap} // <-- Pass regionMap
-                        pySetMatrix={pySetMatrix}
-                    />
-                    <MergedMesh
-                        vertices={vertices}
-                        indices={indices}
-                        names={names}
-                        colors={colors}
-                        edge_colors={edge_colors}
-                        values={values}
-                        hoveredName={hoveredCell && hoveredCell.name} // Replace with your logic
-                        setRegionInfo={setRegionMap}
-                    />
-                    <Stats />
-                </PerformanceMonitor>
-                {controlProps.enablePerf ? (
-                    <Perf position="bottom-left" showGraph={false} />
-                ) : (
-                    <></>
-                )}
+            <ambientLight intensity={intensity} />
+            <pointLight position={[10, 10, 10]} intensity={1} />
+            <Grid infinite={true} cellSize={1} sectionSize={2} />
+            <Scene
+                setHoveredCell={setHoveredCell}
+                setTargetPosition={setTargetPosition}
+                setTooltipPos={setTooltipPos}
+                regionMap={regionMap} // <-- Pass regionMap
+                pySetMatrix={pySetMatrix}
+            />
+            <MergedMesh
+                vertices={vertices}
+                indices={indices}
+                names={names}
+                colors={colors}
+                edge_colors={edge_colors}
+                values={values}
+                hoveredName={hoveredCell && hoveredCell.name} // Replace with your logic
+                setRegionInfo={setRegionMap}
+            />
+            <Stats />
             </Canvas>
             {hoveredCell && (
                 <div
