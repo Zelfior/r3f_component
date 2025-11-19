@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { useControls } from 'leva'
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Grid, OrbitControls, Stats, PerformanceMonitor, GizmoHelper, GizmoViewport, PivotControls } from '@react-three/drei';
-import { useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
 import { Perf } from 'r3f-perf'
@@ -142,9 +142,14 @@ function MergedMesh({
 }
 
 
-function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap }) {
+function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, pySetMatrix }) {
     const { scene, camera, pointer, size } = useThree();
     const [isMouseMoving, setIsMouseMoving] = useState(false);
+    
+
+    // Inside your component
+    const [isDraggingGizmo, setIsDraggingGizmo] = useState(false);
+
 
     useEffect(() => {
         const handleMouseMove = () => {
@@ -156,8 +161,9 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap }) 
         return () => window.removeEventListener("mousemove", handleMouseMove);
     }, []);
 
-    useFrame(() => {
+    useFrame((state) => {
         if (!isMouseMoving) return;
+            
         const x = ((pointer.x + 1) / 2) * size.width;
         const y = ((1 - pointer.y) / 2) * size.height;
         setTooltipPos({ x, y });
@@ -186,7 +192,38 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap }) 
         }
     });
 
-    return null;
+const controlRef = useRef();
+// const matrix = new THREE.Matrix4()
+
+  return (
+    <>
+      <OrbitControls
+        enableDamping={false}
+        dampingFactor={0}
+        enabled={!isDraggingGizmo} // Disable when dragging gizmo
+      />
+
+      <GizmoHelper
+        alignment="bottom-right"
+        margin={[80, 80]}
+        // Optional: Use a callback to detect drag state
+      >
+        <GizmoViewport
+          axisColors={['red', 'green', 'blue']}
+          labelColor="black"
+        />
+      </GizmoHelper>
+        <PivotControls
+            ref={controlRef}
+            onDragStart={() => setIsDraggingGizmo(true)}
+            onDragEnd={() => {
+                setIsDraggingGizmo(false); 
+                pySetMatrix(controlRef.current.matrix.toArray());
+            }}>
+            <GreenSquare/>
+        </PivotControls>
+    </>
+  );
 }
 
 function render({ model }) {
@@ -198,6 +235,7 @@ function render({ model }) {
     let [edge_colors, pySetEdgeColors] = model.useState("edge_colors");
     let [values, pySetValues] = model.useState("values");
     let [names, pySetNames] = model.useState("names");
+    let [matrix, pySetMatrix] = model.useState("matrix");
 
 
     const { ...controlProps } = useControls("controls", {
@@ -209,6 +247,8 @@ function render({ model }) {
     const [targetPosition, setTargetPosition] = useState(null);
 
     const [regionMap, setRegionMap] = useState([]);
+
+    const mat = new THREE.Matrix4()
 
     return (
         <div
@@ -225,6 +265,7 @@ function render({ model }) {
                         setTargetPosition={setTargetPosition}
                         setTooltipPos={setTooltipPos}
                         regionMap={regionMap} // <-- Pass regionMap
+                        pySetMatrix={pySetMatrix}
                     />
                     <MergedMesh
                         vertices={vertices}
@@ -236,21 +277,7 @@ function render({ model }) {
                         hoveredName={hoveredCell && hoveredCell.name} // Replace with your logic
                         setRegionInfo={setRegionMap}
                     />
-                    <OrbitControls enableDamping={false} dampingFactor={0} />
                     <Stats />
-                    <GizmoHelper
-                        alignment="bottom-right" // widget alignment within scene
-                        margin={[80, 80]} // widget margins (X, Y)
-                        // onUpdate={} /* called during camera animation  */
-                        // onTarget={}/* return current camera target (e.g. from orbit controls) to center animation */
-                        // renderPriority={}/* use renderPriority to prevent the helper from disappearing if there is another useFrame(..., 1)*/
-                        >
-                        <GizmoViewport axisColors={['red', 'green', 'blue']} labelColor="black" />
-                        {/* alternative: <GizmoViewcube /> */}
-                    </GizmoHelper>
-                    <PivotControls>
-                        <GreenSquare/>
-                    </PivotControls>
                 </PerformanceMonitor>
                 {controlProps.enablePerf ? (
                     <Perf position="bottom-left" showGraph={false} />

@@ -22,6 +22,15 @@ class ReactThreeFiber(ReactComponent):
     # positions = param.List()
 
     intensity = param.Number(3.2)
+    matrix = param.List()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.param.watch(self.updated_matrix, "matrix")
+
+    def updated_matrix(self, _):
+        print(self.matrix)
 
 
 if __name__ == "__main__":
