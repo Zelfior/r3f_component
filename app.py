@@ -1,5 +1,6 @@
 from typing import List, Tuple
 import panel as pn
+import panel_material_ui as pmui
 import param
 
 import numpy as np
@@ -14,6 +15,7 @@ class ReactThreeFiber(ReactComponent):
 
     _esm = "ReactThreeFiber.bundle.js"
 
+    # Properties to be sent to React Three Fiber
     vertices = param.List()
     objects = param.List()
 
@@ -22,12 +24,22 @@ class ReactThreeFiber(ReactComponent):
     values = param.List()
     names = param.List()
 
+    axes_range = param.List(default=[None, None, None, None, None, None])
+    axes_visible = param.Boolean(default=True)
+
+    slice_tool_visible = param.Boolean(default=False)
+    slice_tool_scale = param.Number(default=1.)
+
+    display_axes_gizmo = param.Boolean(default=True)
+
+    intensity = param.Number(3.2)
+
+    # Values provided by the user
     all_colors: List
     all_edge_colors: List
     all_values: List
     all_names: List
 
-    intensity = param.Number(3.2)
     matrix = param.List()
 
     def __init__(
@@ -62,7 +74,7 @@ class ReactThreeFiber(ReactComponent):
         print("Slicing...")
         self.current_multi_block = self.multi_block.clip(
             normal=y_vector, origin=location
-        ).triangulated().as_polydata_blocks()  # .fill_holes(hole_size=1e6)
+        ).as_polydata_blocks()  # .fill_holes(hole_size=1e6)
         # self.multi_block.cut_with_plane()
         self.update_from_multi_block()
         print("Updated")
@@ -129,25 +141,18 @@ if __name__ == "__main__":
             for j in range(n):
                 for k in range(n):
                     # Translate the cube to its position in the grid
-                    cubes.append(
-                        pv.Cube(
+                    c = pv.Cube(
                             center=(i * spacing, j * spacing, k * spacing)
                         ).triangulate()
-                    )
+                    c["cell_id"] = [f'Object {i * n * n + j * n + k}'] * len(c.points)
+                    cubes.append(c)
 
         return cubes
 
     # Create the 3x3x3 grid of cubes
-    cube_grid = create_cube_grid(n=15, spacing=1.0)
-    print("Number of cubes created:", len(cube_grid))
+    cube_grid = create_cube_grid(n=5, spacing=1.0)
 
-    def get_faces(mesh):
-        faces = np.array(mesh.faces).reshape((-1, 4))[:, 1:]
-        return faces
-
-    vertices = np.array([mesh.points for mesh in cube_grid]).tolist()
-    faces = np.array([get_faces(mesh) for mesh in cube_grid]).tolist()
-
+    mb = pv.MultiBlock(cube_grid)
     centers = np.array([mesh.center for mesh in cube_grid])
 
     range_ = centers.max(axis=0) - centers.min(axis=0)
@@ -161,14 +166,50 @@ if __name__ == "__main__":
         colors.shape
     )
 
-    count = len(vertices)
-    rtf = ReactThreeFiber(sizing_mode="stretch_both")
+    count = len(colors)
 
-    rtf.names += list(f"Object {i}" for i in range(count))
-    rtf.values += list(range(count))
-    rtf.colors += colors.tolist()
-    rtf.edge_colors += edge_colors.tolist()
-    rtf.vertices += vertices
-    rtf.objects += faces
+    rtf = ReactThreeFiber(multi_block=mb,
+                          colors = colors.tolist(),
+                          edge_colors = edge_colors.tolist(),
+                          values = list(range(count)),
+                          names = list(f"Object {i}" for i in range(count)),
+                          sizing_mode="stretch_both"
+                          )
 
-    rtf.show()
+    def toggle_slice_tool(event):
+        print("Toggle slice tool to ", not rtf.slice_tool_visible)
+        rtf.slice_tool_visible = not rtf.slice_tool_visible
+
+    def toggle_axes_gizmo(event):
+        print("Toggle axes gizmo to ", not rtf.display_axes_gizmo)
+        rtf.display_axes_gizmo = not rtf.display_axes_gizmo
+
+    scale_input = pmui.FloatInput(
+        name="Slice Tool Scale",
+        value=1.0,
+        step=0.1,
+    )
+    scale_input.param.watch(
+        lambda event: setattr(rtf, 'slice_tool_scale', event.new),
+        "value",
+    )
+    row = pmui.Column(
+        pmui.Button(
+            label="Toggle Slice Tool",
+            on_click=toggle_slice_tool,
+        ),
+        pmui.Button(
+            label="Toggle Axes Gizmo",
+            on_click=toggle_axes_gizmo,
+        ),
+        scale_input,
+        styles=dict(background='WhiteSmoke'),
+        sizing_mode="stretch_height",
+    )
+
+    layout = pmui.Row(row, rtf, sizing_mode="stretch_both")
+    pmui.Page(
+        main=[layout],
+        title="React Three Fiber with PyVista MultiBlock",
+    ).show()
+

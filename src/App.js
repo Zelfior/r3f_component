@@ -11,22 +11,23 @@ import { Perf } from 'r3f-perf'
 import BufferGeometryUtils from './BufferGeometryUtils.js';
 
 
-function GreenSquare() {
-  const geometry = new THREE.PlaneGeometry(1, 1);
-  const material = new THREE.MeshBasicMaterial({
-    color: 0xdddddd, // Green
-    wireframe: true,
+function SliceSquare({ scale }) {
+  const geometry = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
+  const material = useMemo(() => new THREE.MeshBasicMaterial({
+    color: 0xdddddd,
+    // wireframe: true,
+    transparent: true,
+    opacity: 0.5,
     side: THREE.DoubleSide,
-  });
+  }), []);
 
   return (
-    <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, 1]}>
+    <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[scale, scale, scale]}>
       <primitive object={geometry} />
       <primitive object={material} />
     </mesh>
   );
 }
-
 function MergedMesh({
     vertices,
     indices,
@@ -136,21 +137,20 @@ function MergedMesh({
                 <meshStandardMaterial emissive vertexColors emissiveIntensity={20.5} />
             </mesh>
             <lineSegments geometry={mergedEdges}>
-                 <lineBasicMaterial vertexColors linewidth={1} />
-             </lineSegments>
-         </group>
+                <lineBasicMaterial vertexColors linewidth={1} />
+            </lineSegments>
+        </group>
     );
 }
 
 
-function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, pySetMatrix }) {
+function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, pySetMatrix, displayAxesGizmo, displaySliceTool, squareScale }) {
     const { scene, camera, pointer, size } = useThree();
     const [isMouseMoving, setIsMouseMoving] = useState(false);
-    
+
 
     // Inside your component
     const [isDraggingGizmo, setIsDraggingGizmo] = useState(false);
-
 
     useEffect(() => {
         const handleMouseMove = () => {
@@ -164,7 +164,7 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, py
 
     useFrame((state) => {
         if (!isMouseMoving) return;
-            
+
         const x = ((pointer.x + 1) / 2) * size.width;
         const y = ((1 - pointer.y) / 2) * size.height;
         setTooltipPos({ x, y });
@@ -193,39 +193,43 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, py
         }
     });
 
-const controlRef = useRef();
-// const matrix = new THREE.Matrix4()
+    const controlRef = useRef();
+    // const matrix = new THREE.Matrix4()
 
-  return (
-    <>
-      <OrbitControls
-        enableDamping={false}
-        dampingFactor={0}
-        enabled={!isDraggingGizmo} // Disable when dragging gizmo
-      />
-
-      <GizmoHelper
-        alignment="bottom-right"
-        margin={[80, 80]}
-        // Optional: Use a callback to detect drag state
-      >
-        <GizmoViewport
-          axisColors={['red', 'green', 'blue']}
-          labelColor="black"
-        />
-      </GizmoHelper>
-        <PivotControls
-            ref={controlRef}
-            onDragStart={() => setIsDraggingGizmo(true)}
-            onDragEnd={() => {
-                setIsDraggingGizmo(false); 
-                pySetMatrix(controlRef.current.matrix.toArray());
-            }}
-            disableScaling={true}>
-            <GreenSquare/>
-        </PivotControls>
-    </>
-  );
+    return (
+        <>
+            <OrbitControls
+                enableDamping={false}
+                dampingFactor={0}
+                enabled={!isDraggingGizmo} // Disable when dragging gizmo
+            />
+            {displayAxesGizmo && (
+                <GizmoHelper
+                    alignment="bottom-right"
+                    margin={[80, 80]}
+                // Optional: Use a callback to detect drag state
+                >
+                    <GizmoViewport
+                        axisColors={['red', 'green', 'blue']}
+                        labelColor="black"
+                    />
+                </GizmoHelper>
+            )}
+            {displaySliceTool && (
+                <PivotControls
+                    ref={controlRef}
+                    onDragStart={() => setIsDraggingGizmo(true)}
+                    onDragEnd={() => {
+                        setIsDraggingGizmo(false);
+                        pySetMatrix(controlRef.current.matrix.toArray());
+                    }}
+                    disableScaling={true}
+                >
+                    <SliceSquare scale={squareScale}/>
+                </PivotControls>
+            )}
+        </>
+    );
 }
 
 function render({ model }) {
@@ -239,6 +243,10 @@ function render({ model }) {
     let [names, pySetNames] = model.useState("names");
     let [matrix, pySetMatrix] = model.useState("matrix");
 
+    let [displayAxesGizmo, pySetDisplayAxesGizmo] = model.useState("display_axes_gizmo");
+    let [displaySliceTool, pySetDisplaySliceTool] = model.useState("slice_tool_visible");
+    let [sliceToolScale, pySetSliceToolScale] = model.useState("slice_tool_scale");
+
     const [hoveredCell, setHoveredCell] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0, z: 0 });
     const [targetPosition, setTargetPosition] = useState(null);
@@ -248,30 +256,33 @@ function render({ model }) {
     return (
         <div
             id="canvas-container"
-            style={{ position: "relative", width: "100vw", height: "100vh" }}
+            style={{ position: "relative", width: "100%", height: "100%" }}
         >
             <Canvas camera={{ position: [0, 5, 10] }} linear flat>
-            <ambientLight intensity={intensity} />
-            <pointLight position={[10, 10, 10]} intensity={1} />
-            <Grid infinite={true} cellSize={1} sectionSize={2} />
-            <Scene
-                setHoveredCell={setHoveredCell}
-                setTargetPosition={setTargetPosition}
-                setTooltipPos={setTooltipPos}
-                regionMap={regionMap} // <-- Pass regionMap
-                pySetMatrix={pySetMatrix}
-            />
-            <MergedMesh
-                vertices={vertices}
-                indices={indices}
-                names={names}
-                colors={colors}
-                edge_colors={edge_colors}
-                values={values}
-                hoveredName={hoveredCell && hoveredCell.name} // Replace with your logic
-                setRegionInfo={setRegionMap}
-            />
-            <Stats />
+                <ambientLight intensity={intensity} />
+                <pointLight position={[10, 10, 10]} intensity={1} />
+                <Grid infinite={true} cellSize={1} sectionSize={2} />
+                <Scene
+                    setHoveredCell={setHoveredCell}
+                    setTargetPosition={setTargetPosition}
+                    setTooltipPos={setTooltipPos}
+                    regionMap={regionMap} // <-- Pass regionMap
+                    pySetMatrix={pySetMatrix}
+                    displayAxesGizmo={displayAxesGizmo}
+                    displaySliceTool={displaySliceTool}
+                    squareScale={sliceToolScale}
+                />
+                <MergedMesh
+                    vertices={vertices}
+                    indices={indices}
+                    names={names}
+                    colors={colors}
+                    edge_colors={edge_colors}
+                    values={values}
+                    hoveredName={hoveredCell && hoveredCell.name} // Replace with your logic
+                    setRegionInfo={setRegionMap}
+                />
+                <Stats />
             </Canvas>
             {hoveredCell && (
                 <div
