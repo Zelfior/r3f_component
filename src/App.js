@@ -2,7 +2,7 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { useControls } from 'leva'
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { Grid, OrbitControls, Stats, PerformanceMonitor, GizmoHelper, GizmoViewport, PivotControls, Line } from '@react-three/drei';
+import { Grid, OrbitControls, Stats, PerformanceMonitor, GizmoHelper, GizmoViewport, PivotControls, Line, Text } from '@react-three/drei';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
@@ -142,51 +142,184 @@ function MergedMesh({
             </lineSegments>
         </group>
     );
-}
 
-const AxesHelper = ({ boundingBox }) => {
-    const { min, max } = boundingBox;
-    const center = [(min.x + max.x) / 2, (min.y + max.y) / 2, (min.z + max.z) / 2];
-    const size = [max.x - min.x, max.y - min.y, max.z - min.z];
 
-    const lineWidth = 1.5;
-    return (
-        <>
-            {/* X-axis */}
-            <Line
-                points={[
-                    [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
-                    [center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
-                ]}
-                color="gray"
-                lineWidth={lineWidth}
-            />
-            {/* Y-axis */}
-            <Line
-                points={[
-                    [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
-                    [center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2],
-                ]}
-                color="gray"
-                lineWidth={lineWidth}
-            />
-            {/* Z-axis */}
-            <Line
-                points={[
-                    [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
-                    [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2],
-                ]}
-                color="gray"
-                lineWidth={lineWidth}
-            />
-        </>
-    );
+} 
+
+const AxesHelper = ({ boundingBox, dataBox }) => {
+
+  const { min, max } = boundingBox;
+  const center = useMemo(() => [(min.x + max.x) / 2, (min.y + max.y) / 2, (min.z + max.z) / 2], [min, max]);
+  const size = useMemo(() => [max.x - min.x, max.y - min.y, max.z - min.z], [min, max]);
+
+  const { min:dataMin, max:dataMax } = dataBox;
+
+  const dataCenter = useMemo(() => [(dataMin.x + dataMax.x) / 2, (dataMin.y + dataMax.y) / 2, (dataMin.z + dataMax.z) / 2], [dataMin, dataMax]);
+  const dataSize = useMemo(() => [dataMax.x - dataMin.x, dataMax.y - dataMin.y, dataMax.z - dataMin.z], [dataMin, dataMax]);
+
+  const lineWidth = 1.5;
+  const axesNameSize = 0.5;
+  const tickSize = 0.1;
+  const tickSpacing = 0.2;
+  const smallTickLength = 0.1; // Length of the small ticks at each extremity
+  const xTextRef = useRef();
+  const yTextRef = useRef();
+  const zTextRef = useRef();
+  const { camera } = useThree();
+
+  useFrame(() => {
+    if (xTextRef.current) {
+      const xText = xTextRef.current;
+      xText.setRotationFromQuaternion(camera.quaternion);
+      xText.updateMatrix();
+    }
+    if (yTextRef.current) {
+      const yText = yTextRef.current;
+      yText.setRotationFromQuaternion(camera.quaternion);
+      yText.updateMatrix();
+    }
+    if (zTextRef.current) {
+      const zText = zTextRef.current;
+      zText.setRotationFromQuaternion(camera.quaternion);
+      zText.updateMatrix();
+    }
+  });
+
+  // Memoize the X-axis lines, ticks, and small ticks
+  const xAxis = useMemo(() => (
+    <>
+      {/* X-axis line */}
+      <Line
+        points={[
+          [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
+          [center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
+        ]}
+        color="lightgray"
+        lineWidth={lineWidth}
+      />
+      {/* Small ticks at the extremities of the X-axis */}
+      <Line
+        points={[
+          [dataCenter[0] - dataSize[0] / 2, center[1] - size[1] / 2 - smallTickLength, center[2] - size[2] / 2],
+          [dataCenter[0] - dataSize[0] / 2, center[1] - size[1] / 2 + smallTickLength, center[2] - size[2] / 2],
+        ]}
+        color="lightgray"
+        lineWidth={lineWidth}
+      />
+      <Line
+        points={[
+          [dataCenter[0] + dataSize[0] / 2, center[1] - size[1] / 2 - smallTickLength, center[2] - size[2] / 2],
+          [dataCenter[0] + dataSize[0] / 2, center[1] - size[1] / 2 + smallTickLength, center[2] - size[2] / 2],
+        ]}
+        color="lightgray"
+        lineWidth={lineWidth}
+      />
+      <Text
+        ref={xTextRef}
+        position={[center[0] + size[0] / 2 + axesNameSize, center[1] - size[1] / 2, center[2] - size[2] / 2]}
+        color="gray"
+        fontSize={axesNameSize}
+        lookAt={camera.position}
+      >
+        X
+      </Text>
+    </>
+  ), [center, size, lineWidth, axesNameSize, camera.position, smallTickLength]);
+
+  // Memoize the Y-axis lines, ticks, and small ticks
+  const yAxis = useMemo(() => (
+    <>
+      {/* Y-axis line */}
+      <Line
+        points={[
+          [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
+          [center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2],
+        ]}
+        color="lightgray"
+        lineWidth={lineWidth}
+      />
+      {/* Small ticks at the extremities of the Y-axis */}
+      <Line
+        points={[
+          [center[0] - size[0] / 2 - smallTickLength, dataCenter[1] - dataSize[1] / 2, center[2] - size[2] / 2],
+          [center[0] - size[0] / 2 + smallTickLength, dataCenter[1] - dataSize[1] / 2, center[2] - size[2] / 2],
+        ]}
+        color="lightgray"
+        lineWidth={lineWidth}
+      />
+      <Line
+        points={[
+          [center[0] - size[0] / 2 - smallTickLength, dataCenter[1] + dataSize[1] / 2, center[2] - size[2] / 2],
+          [center[0] - size[0] / 2 + smallTickLength, dataCenter[1] + dataSize[1] / 2, center[2] - size[2] / 2],
+        ]}
+        color="lightgray"
+        lineWidth={lineWidth}
+      />
+      <Text
+        ref={yTextRef}
+        position={[center[0] - size[0] / 2, center[1] + size[1] / 2 + axesNameSize, center[2] - size[2] / 2]}
+        color="gray"
+        fontSize={axesNameSize}
+        lookAt={camera.position}
+      >
+        Y
+      </Text>
+    </>
+  ), [center, size, lineWidth, axesNameSize, camera.position, smallTickLength]);
+
+  // Memoize the Z-axis lines, ticks, and small ticks
+  const zAxis = useMemo(() => (
+    <>
+      {/* Z-axis line */}
+      <Line
+        points={[
+          [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
+          [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2],
+        ]}
+        color="lightgray"
+        lineWidth={lineWidth}
+      />
+      {/* Small ticks at the extremities of the Z-axis */}
+      <Line
+        points={[
+          [center[0] - size[0] / 2 - smallTickLength, center[1] - size[1] / 2, dataCenter[2] - dataSize[2] / 2],
+          [center[0] - size[0] / 2 + smallTickLength, center[1] - size[1] / 2, dataCenter[2] - dataSize[2] / 2],
+        ]}
+        color="lightgray"
+        lineWidth={lineWidth}
+      />
+      <Line
+        points={[
+          [center[0] - size[0] / 2 - smallTickLength, center[1] - size[1] / 2, dataCenter[2] + dataSize[2] / 2],
+          [center[0] - size[0] / 2 + smallTickLength, center[1] - size[1] / 2, dataCenter[2] + dataSize[2] / 2],
+        ]}
+        color="lightgray"
+        lineWidth={lineWidth}
+      />
+      <Text
+        ref={zTextRef}
+        position={[center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2 + axesNameSize]}
+        color="gray"
+        fontSize={axesNameSize}
+        lookAt={camera.position}
+      >
+        Z
+      </Text>
+    </>
+  ), [center, size, lineWidth, axesNameSize, camera.position, smallTickLength]);
+
+  return (
+    <>
+      {xAxis}
+      {yAxis}
+      {zAxis}
+    </>
+  );
 };
 
-function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, pySetMatrix, displayAxesGizmo, displaySliceTool, squareScale, displayAxes, axesBoundingBox }) {
+function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, pySetMatrix, displayAxesGizmo, displaySliceTool, squareScale, displayAxes, axesBoundingBox, dataBoundingBox }) {
     const { scene, camera, pointer, size } = useThree();
     const [isMouseMoving, setIsMouseMoving] = useState(false);
-
 
     // Inside your component
     const [isDraggingGizmo, setIsDraggingGizmo] = useState(false);
@@ -268,7 +401,7 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, py
                 </PivotControls>
             )}
             {displayAxes && (
-                <AxesHelper boundingBox={axesBoundingBox} />
+                <AxesHelper boundingBox={axesBoundingBox} dataBox={dataBoundingBox}/>
             )}
         </>
     );
@@ -288,8 +421,10 @@ function render({ model }) {
     let [displayAxesGizmo, pySetDisplayAxesGizmo] = model.useState("display_axes_gizmo");
     let [displaySliceTool, pySetDisplaySliceTool] = model.useState("slice_tool_visible");
     let [sliceToolScale, pySetSliceToolScale] = model.useState("slice_tool_scale");
-    
+
     let [box, setBox] = model.useState("axes_range");
+    let [dataBox, setDataBox] = model.useState("axes_data_box");
+    let [axesVisible, pySetAxesVisible] = model.useState("axes_visible");
 
     const [hoveredCell, setHoveredCell] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0, z: 0 });
@@ -304,12 +439,19 @@ function render({ model }) {
         };
     }, [box]);
 
+    const dataBoundingBox = useMemo(() => {
+        return {
+            min: new THREE.Vector3(dataBox[0], dataBox[2], dataBox[4]),
+            max: new THREE.Vector3(dataBox[1], dataBox[3], dataBox[5]),
+        };
+    }, [dataBox]);
+
     return (
         <div
             id="canvas-container"
             style={{ position: "relative", width: "100%", height: "100%" }}
         >
-            <Canvas camera={{ position: [0, 5, 10] }} linear flat>
+            <Canvas camera={{ position: [0, 5, 10], up: [0, 0, 1] }} linear flat>
                 <ambientLight intensity={intensity} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
                 <Grid infinite={true} cellSize={1} sectionSize={2} />
@@ -322,8 +464,9 @@ function render({ model }) {
                     displayAxesGizmo={displayAxesGizmo}
                     displaySliceTool={displaySliceTool}
                     squareScale={sliceToolScale}
-                    displayAxes={true}
+                    displayAxes={axesVisible}
                     axesBoundingBox={axesBoundingBox}
+                    dataBoundingBox={dataBoundingBox}
                 />
                 <MergedMesh
                     vertices={vertices}

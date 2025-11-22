@@ -25,6 +25,7 @@ class ReactThreeFiber(ReactComponent):
     names = param.List()
 
     axes_range = param.List(default=[None, None, None, None, None, None])
+    axes_data_box = param.List(default=[None, None, None, None, None, None])
     axes_visible = param.Boolean(default=True)
 
     slice_tool_visible = param.Boolean(default=False)
@@ -118,6 +119,16 @@ class ReactThreeFiber(ReactComponent):
         y_bounds = (self.current_multi_block.bounds[2], self.current_multi_block.bounds[3])
         z_bounds = (self.current_multi_block.bounds[4], self.current_multi_block.bounds[5])
 
+        self.axes_data_box = [
+            float(x_bounds[0]),
+            float(x_bounds[1]),
+            float(y_bounds[0]),
+            float(y_bounds[1]),
+            float(z_bounds[0]),
+            float(z_bounds[1]),
+        ]
+
+
         x_len = x_bounds[1] - x_bounds[0]
         y_len = y_bounds[1] - y_bounds[0]
         z_len = z_bounds[1] - z_bounds[0]
@@ -127,12 +138,12 @@ class ReactThreeFiber(ReactComponent):
         z_bounds = (z_bounds[0] - 0.1 * z_len, z_bounds[1] + 0.1 * z_len)
 
         self.axes_range = [
-            x_bounds[0],
-            x_bounds[1],
-            y_bounds[0],
-            y_bounds[1],
-            z_bounds[0],
-            z_bounds[1],
+            float(x_bounds[0]),
+            float(x_bounds[1]),
+            float(y_bounds[0]),
+            float(y_bounds[1]),
+            float(z_bounds[0]),
+            float(z_bounds[1]),
         ]
         print("Lists extracted.")
 
@@ -222,6 +233,10 @@ if __name__ == "__main__":
         pmui.Button(
             label="Toggle Axes Gizmo",
             on_click=toggle_axes_gizmo,
+        ),
+        pmui.Button(
+            label="Toggle Axes Visibility",
+            on_click=lambda event: setattr(rtf, 'axes_visible', not rtf.axes_visible),
         ),
         scale_input,
         styles=dict(background='WhiteSmoke'),
