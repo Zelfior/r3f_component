@@ -113,6 +113,27 @@ class ReactThreeFiber(ReactComponent):
         self.edge_colors = [self.all_edge_colors[i] for i in indexes]
         self.values = [self.all_values[i] for i in indexes]
         self.names = [self.all_names[i] for i in indexes]
+
+        x_bounds = (self.current_multi_block.bounds[0], self.current_multi_block.bounds[1])
+        y_bounds = (self.current_multi_block.bounds[2], self.current_multi_block.bounds[3])
+        z_bounds = (self.current_multi_block.bounds[4], self.current_multi_block.bounds[5])
+
+        x_len = x_bounds[1] - x_bounds[0]
+        y_len = y_bounds[1] - y_bounds[0]
+        z_len = z_bounds[1] - z_bounds[0]
+
+        x_bounds = (x_bounds[0] - 0.1 * x_len, x_bounds[1] + 0.1 * x_len)
+        y_bounds = (y_bounds[0] - 0.1 * y_len, y_bounds[1] + 0.1 * y_len)
+        z_bounds = (z_bounds[0] - 0.1 * z_len, z_bounds[1] + 0.1 * z_len)
+
+        self.axes_range = [
+            x_bounds[0],
+            x_bounds[1],
+            y_bounds[0],
+            y_bounds[1],
+            z_bounds[0],
+            z_bounds[1],
+        ]
         print("Lists extracted.")
 
 

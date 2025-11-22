@@ -2,31 +2,32 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { useControls } from 'leva'
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { Grid, OrbitControls, Stats, PerformanceMonitor, GizmoHelper, GizmoViewport, PivotControls } from '@react-three/drei';
+import { Grid, OrbitControls, Stats, PerformanceMonitor, GizmoHelper, GizmoViewport, PivotControls, Line } from '@react-three/drei';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
 import { Perf } from 'r3f-perf'
 
 import BufferGeometryUtils from './BufferGeometryUtils.js';
+import { min } from "three/examples/jsm/nodes/Nodes.js";
 
 
 function SliceSquare({ scale }) {
-  const geometry = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
-  const material = useMemo(() => new THREE.MeshBasicMaterial({
-    color: 0xdddddd,
-    // wireframe: true,
-    transparent: true,
-    opacity: 0.5,
-    side: THREE.DoubleSide,
-  }), []);
+    const geometry = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
+    const material = useMemo(() => new THREE.MeshBasicMaterial({
+        color: 0xdddddd,
+        // wireframe: true,
+        transparent: true,
+        opacity: 0.5,
+        side: THREE.DoubleSide,
+    }), []);
 
-  return (
-    <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[scale, scale, scale]}>
-      <primitive object={geometry} />
-      <primitive object={material} />
-    </mesh>
-  );
+    return (
+        <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[scale, scale, scale]}>
+            <primitive object={geometry} />
+            <primitive object={material} />
+        </mesh>
+    );
 }
 function MergedMesh({
     vertices,
@@ -143,8 +144,46 @@ function MergedMesh({
     );
 }
 
+const AxesHelper = ({ boundingBox }) => {
+    const { min, max } = boundingBox;
+    const center = [(min.x + max.x) / 2, (min.y + max.y) / 2, (min.z + max.z) / 2];
+    const size = [max.x - min.x, max.y - min.y, max.z - min.z];
 
-function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, pySetMatrix, displayAxesGizmo, displaySliceTool, squareScale }) {
+    const lineWidth = 1.5;
+    return (
+        <>
+            {/* X-axis */}
+            <Line
+                points={[
+                    [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
+                    [center[0] + size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
+                ]}
+                color="gray"
+                lineWidth={lineWidth}
+            />
+            {/* Y-axis */}
+            <Line
+                points={[
+                    [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
+                    [center[0] - size[0] / 2, center[1] + size[1] / 2, center[2] - size[2] / 2],
+                ]}
+                color="gray"
+                lineWidth={lineWidth}
+            />
+            {/* Z-axis */}
+            <Line
+                points={[
+                    [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] - size[2] / 2],
+                    [center[0] - size[0] / 2, center[1] - size[1] / 2, center[2] + size[2] / 2],
+                ]}
+                color="gray"
+                lineWidth={lineWidth}
+            />
+        </>
+    );
+};
+
+function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, pySetMatrix, displayAxesGizmo, displaySliceTool, squareScale, displayAxes, axesBoundingBox }) {
     const { scene, camera, pointer, size } = useThree();
     const [isMouseMoving, setIsMouseMoving] = useState(false);
 
@@ -225,8 +264,11 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, py
                     }}
                     disableScaling={true}
                 >
-                    <SliceSquare scale={squareScale}/>
+                    <SliceSquare scale={squareScale} />
                 </PivotControls>
+            )}
+            {displayAxes && (
+                <AxesHelper boundingBox={axesBoundingBox} />
             )}
         </>
     );
@@ -246,12 +288,21 @@ function render({ model }) {
     let [displayAxesGizmo, pySetDisplayAxesGizmo] = model.useState("display_axes_gizmo");
     let [displaySliceTool, pySetDisplaySliceTool] = model.useState("slice_tool_visible");
     let [sliceToolScale, pySetSliceToolScale] = model.useState("slice_tool_scale");
+    
+    let [box, setBox] = model.useState("axes_range");
 
     const [hoveredCell, setHoveredCell] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0, z: 0 });
     const [targetPosition, setTargetPosition] = useState(null);
 
     const [regionMap, setRegionMap] = useState([]);
+
+    const axesBoundingBox = useMemo(() => {
+        return {
+            min: new THREE.Vector3(box[0], box[2], box[4]),
+            max: new THREE.Vector3(box[1], box[3], box[5]),
+        };
+    }, [box]);
 
     return (
         <div
@@ -271,6 +322,8 @@ function render({ model }) {
                     displayAxesGizmo={displayAxesGizmo}
                     displaySliceTool={displaySliceTool}
                     squareScale={sliceToolScale}
+                    displayAxes={true}
+                    axesBoundingBox={axesBoundingBox}
                 />
                 <MergedMesh
                     vertices={vertices}
