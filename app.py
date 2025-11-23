@@ -10,6 +10,10 @@ from panel.custom import ReactComponent
 
 pn.extension()
 
+def get_rd_bu(values):
+    """Return a red-blue colormap with n colors."""
+    import matplotlib
+    return matplotlib.colormaps["RdBu"](values)
 
 class ReactThreeFiber(ReactComponent):
 
@@ -182,7 +186,7 @@ if __name__ == "__main__":
         return cubes
 
     # Create the 3x3x3 grid of cubes
-    cube_grid = create_cube_grid(n=5, spacing=1.0)
+    cube_grid = create_cube_grid(n=8, spacing=1.0)
 
     mb = pv.MultiBlock(cube_grid)
     centers = np.array([mesh.center for mesh in cube_grid])
@@ -192,11 +196,17 @@ if __name__ == "__main__":
     if np.any(range_ == 0):
         range_[range_ == 0] = 1.0
 
-    colors = (centers - centers.min(axis=0)) / range_
+    arr = (centers - centers.min(axis=0)) / range_
+    values = np.max(arr, axis=1) * np.sum(arr, axis=1)
+    values /= max(values)
+
+    colors = get_rd_bu(values)[:, :3]
     flat_colors = colors.flatten()
     edge_colors = np.where(flat_colors - 0.2 < 0, 0, flat_colors - 0.2).reshape(
         colors.shape
     )
+
+    print(edge_colors)
 
     count = len(colors)
 
