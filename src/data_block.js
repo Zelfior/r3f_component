@@ -50,6 +50,7 @@ function MultiBlockData({
                 value: values[i],
                 idOffset: vertexOffset,
                 vertexCount: vertices[i].length,
+                cellType: "MultiBlock",
             });
 
             vertexOffset += vertices[i].length; // increment by number of vertices

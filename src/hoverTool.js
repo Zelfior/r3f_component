@@ -1,13 +1,11 @@
 import * as React from "react";
 
-function HoverTool({ hoveredCell, hoveredCellType, tooltipPos, targetPosition }) {
+function HoverTool({ hoveredCell, tooltipPos, targetPosition }) {
     if (!hoveredCell)
          return null;
 
-    return (
-        <div
-            style={{
-                position: "absolute",
+    const hoveredCellType = hoveredCell.cellType;
+    const hoveredLabelStyle = {position: "absolute",
                 pointerEvents: "none",
                 left: tooltipPos.x + 10,
                 top: tooltipPos.y + 10,
@@ -18,14 +16,46 @@ function HoverTool({ hoveredCell, hoveredCellType, tooltipPos, targetPosition })
                 fontSize: "12px",
                 fontFamily: "sans-serif",
                 whiteSpace: "nowrap",
-            }}
-        >
-            <div>Cell : {hoveredCell.name}</div>
-            <div>
-                Location : {targetPosition.x.toFixed(2)},{" "}
-                {targetPosition.y.toFixed(2)}, {targetPosition.z.toFixed(2)}
-            </div>
-            <div>Value : {hoveredCell.value}</div>
+            }
+
+    let displayedCell;
+    let displayedLocation;
+    let displayedValue;
+
+    switch (hoveredCellType) {
+        case 'MultiBlock':
+            displayedCell = hoveredCell.name;
+            break;
+        // Add more cases as needed
+        default:
+            displayedCell = undefined;
+    }
+
+    switch (hoveredCellType) {
+        case 'MultiBlock':
+            displayedLocation = targetPosition.x.toFixed(2)+", "+targetPosition.y.toFixed(2)+", "+targetPosition.z.toFixed(2);
+            break;
+        // Add more cases as needed
+        default:
+            displayedLocation = undefined;
+    }
+
+    switch (hoveredCellType) {
+        case 'MultiBlock':
+            displayedValue = hoveredCell.value;
+            break;
+        // Add more cases as needed
+        default:
+            displayedValue = undefined;
+    }
+
+    return (
+        <div style={hoveredLabelStyle}>
+            {displayedCell !== undefined && <div>Cell : {displayedCell}</div>}
+            {displayedLocation !== undefined && (
+                <div>Location : ({displayedLocation})</div>
+            )}
+            {displayedValue !== undefined && <div>Value : {displayedValue}</div>}
         </div>
     );
 }

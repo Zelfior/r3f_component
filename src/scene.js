@@ -76,6 +76,7 @@ function Scene({
                 const regionIdAttr = object.geometry.attributes.regionId;
                 const regionId = regionIdAttr.getX(face.a);
                 const region = regionMap.find((r) => r.id === regionId);
+                
                 if (region) {
                     setHoveredCell(region);
                 }

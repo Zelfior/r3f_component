@@ -135,7 +135,6 @@ function render({ model }) {
             </Canvas>
             <HoverTool
                 hoveredCell={hoveredCell}
-                hoveredCellType={hoveredCellType}
                 tooltipPos={tooltipPos}
                 targetPosition={targetPosition}
             />
