@@ -314,7 +314,7 @@ function render({ model }) {
             {hoveredCell && (
                 <div
                     style={{
-                        position: "fixed",
+                        position: "absolute",
                         pointerEvents: "none",
                         left: tooltipPos.x + 10,
                         top: tooltipPos.y + 10,

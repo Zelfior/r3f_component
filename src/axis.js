@@ -123,29 +123,78 @@ const AxesHelper = ({ boundingBox, dataBox }) => {
 
     const vectorCenter = new THREE.Vector3(center[0], center[1], center[2]);
     
-    const direction_to_camera = new THREE.Vector3(camera.position.x - vectorCenter.x, camera.position.y - vectorCenter.y, camera.position.z - vectorCenter.z).normalize();
+    // const direction_to_camera = new THREE.Vector3(camera.position.x - vectorCenter.x, camera.position.y - vectorCenter.y, camera.position.z - vectorCenter.z).normalize();
+    const camera_angle = camera.rotation;
+    const direction_to_camera = new THREE.Vector3( 0, 0, 1 );
+    direction_to_camera.applyEuler(camera_angle);
 
     let displayX = Math.abs(direction_to_camera.z) >= 0.02 || Math.abs(direction_to_camera.y) >= 0.02;
     let displayY = Math.abs(direction_to_camera.x) >= 0.02 || Math.abs(direction_to_camera.z) >= 0.02;
     let displayZ = Math.abs(direction_to_camera.y) >= 0.02 || Math.abs(direction_to_camera.x) >= 0.02;
     
-    let isMinX = direction_to_camera.x < 0;
-    let isMinY = direction_to_camera.y < 0;
+    let xAxisCenter, yAxisCenter, zAxisCenter;
+    let tickDirectionX, tickDirectionY, tickDirectionZ;
+    
+    if (!displayX){
+        tickDirectionX = [0, 0, 1];
+        tickDirectionY = [0, 0, 1];
+        tickDirectionZ = [0, 1, 0];
 
-    let zFactorX = direction_to_camera.y * direction_to_camera.x < 0 ? isMinX : !isMinX;
-    let zFactorY = direction_to_camera.x * direction_to_camera.y < 0 ? isMinY : !isMinY;
+        let x_val = direction_to_camera.x > 0 ? max.x : min.x;
+        let y_val = direction_to_camera.y > 0 ? max.y : min.y;
+        let z_val = direction_to_camera.z > 0 ? max.z : min.z;
 
-    isMinX = direction_to_camera.z < 0 ? !isMinX : isMinX;
-    isMinY = direction_to_camera.z < 0 ? !isMinY : isMinY;
+        xAxisCenter = [center[0], y_val, z_val];
+        yAxisCenter = [x_val, center[1], z_val];
+        zAxisCenter = [x_val, y_val, center[2]];
+    }
+    else if (!displayY){
+        tickDirectionX = [0, 0, 1];
+        tickDirectionY = [0, 0, 1];
+        tickDirectionZ = [1, 0, 0];
 
-    let xAxisCenter = [center[0], (isMinY ? min.y : max.y), min.z];
-    let yAxisCenter = [(isMinX ? min.x : max.x), center[1], min.z];
-    let zAxisCenter = [(!zFactorX ? min.x : max.x), (zFactorY ? min.y : max.y), center[2]];
+        let x_val = direction_to_camera.x > 0 ? max.x : min.x;
+        let y_val = direction_to_camera.y > 0 ? max.y : min.y;
+        let z_val = direction_to_camera.z > 0 ? max.z : min.z;
 
-    let tickDirectionX = Math.abs(direction_to_camera.y) > Math.abs(direction_to_camera.z) ? [0, 0, 1] : [0, 1, 0];
-    let tickDirectionY = Math.abs(direction_to_camera.x) > Math.abs(direction_to_camera.z) ? [0, 0, 1] : [1, 0, 0];
-    let tickDirectionZ = Math.abs(direction_to_camera.x) > Math.abs(direction_to_camera.y) ? [0, 1, 0] : [1, 0, 0];
+        xAxisCenter = [center[0], y_val, z_val];
+        yAxisCenter = [x_val, center[1], z_val];
+        zAxisCenter = [x_val, y_val, center[2]];
+    }
+    else if (!displayZ){
+        tickDirectionX = [0, 1, 0];
+        tickDirectionY = [1, 0, 0];
+        tickDirectionZ = [0, 1, 0];
 
+        let x_val = direction_to_camera.x > 0 ? max.x : min.x;
+        let y_val = direction_to_camera.y > 0 ? max.y : min.y;
+        let z_val = direction_to_camera.z > 0 ? max.z : min.z;
+
+        xAxisCenter = [center[0], y_val, z_val];
+        yAxisCenter = [x_val, center[1], z_val];
+        zAxisCenter = [x_val, y_val, center[2]];
+        
+    }
+    else{
+        let isMinX = direction_to_camera.x < 0;
+        let isMinY = direction_to_camera.y < 0;
+
+        let zFactorX = direction_to_camera.y * direction_to_camera.x < 0 ? isMinX : !isMinX;
+        let zFactorY = direction_to_camera.x * direction_to_camera.y < 0 ? isMinY : !isMinY;
+
+        isMinX = direction_to_camera.z < 0 ? !isMinX : isMinX;
+        isMinY = direction_to_camera.z < 0 ? !isMinY : isMinY;
+
+        xAxisCenter = [center[0], (isMinY ? min.y : max.y), min.z];
+        yAxisCenter = [(isMinX ? min.x : max.x), center[1], min.z];
+        zAxisCenter = [(!zFactorX ? min.x : max.x), (zFactorY ? min.y : max.y), center[2]];
+
+        tickDirectionX = Math.abs(direction_to_camera.y) > Math.abs(direction_to_camera.z) ? [0, 0, 1] : [0, 1, 0];
+        tickDirectionY = Math.abs(direction_to_camera.x) > Math.abs(direction_to_camera.z) ? [0, 0, 1] : [1, 0, 0];
+        tickDirectionZ = Math.abs(direction_to_camera.x) > Math.abs(direction_to_camera.y) ? [0, 1, 0] : [1, 0, 0];
+
+    }
+    
     // Memoize the X-axis lines, ticks, and small ticks
     const xAxis = drawLine([1, 0, 0], xAxisCenter, size[0] / 2, dataSize[0] / 2, smallTickLength, tickDirectionX, 'X', "lightgray", "gray", lineWidth, axesNameSize);
 
