@@ -1,4 +1,5 @@
 from typing import List, Tuple
+from dataclasses import dataclass
 import panel as pn
 import panel_material_ui as pmui
 import param
@@ -20,90 +21,30 @@ def get_rd_bu(values, html=False):
     html_colors = [matplotlib.colors.rgb2hex(rgba[:3]) for rgba in rgba_colors]
     return html_colors
 
-class ReactThreeFiber(ReactComponent):
+@dataclass
+class PyvistaData:
+    def to_dict(self):
+        raise NotImplementedError()
 
-    _esm = "ReactThreeFiber.bundle.js"
+    def slice(self, normal: List[float], origin: List[float]):
+        raise NotImplementedError()
+    
+@dataclass
+class MultiBlockData(PyvistaData):
+    multi_block: pv.MultiBlock
+    colors: List[Tuple[float, float, float]]
+    edge_colors: List[Tuple[float, float, float]]
+    values: List[float]
+    names: List[str]
 
-    # Properties to be sent to React Three Fiber
-    vertices = param.List()
-    objects = param.List()
-
-    colors = param.List()
-    edge_colors = param.List()
-    values = param.List()
-    names = param.List()
-
-    axes_range = param.List(default=[None, None, None, None, None, None])
-    axes_data_box = param.List(default=[None, None, None, None, None, None])
-    axes_visible = param.Boolean(default=True)
-
-    slice_tool_visible = param.Boolean(default=False)
-    slice_tool_scale = param.Number(default=1.)
-
-    display_axes_gizmo = param.Boolean(default=True)
-
-    display_color_map = param.Boolean(default=True)
-    color_map_colors = param.List(default=['#440154', '#482878', '#3E4989', '#31688E', '#26828E', '#1F9E89', '#35B779', '#6DCD59', '#B4DE2C', '#FDE725', '#FFFFE0'])
-    color_bar_bounds = param.Tuple(default=(0.0, 1.0))
-
-    intensity = param.Number(3.2)
-
-    # Values provided by the user
-    all_colors: List
-    all_edge_colors: List
-    all_values: List
-    all_names: List
-
-    matrix = param.List()
-
-    def __init__(
-        self,
-        multi_block: pv.MultiBlock,
-        colors: List[Tuple[float, float, float]],
-        edge_colors: List[Tuple[float, float, float]],
-        values: List[float],
-        names: List[str],
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-
-        self.param.watch(self.updated_matrix, "matrix")
-
-        self.multi_block = multi_block
-        self.current_multi_block = multi_block.copy()
-
-        self.all_colors = colors
-        self.all_edge_colors = edge_colors
-        self.all_values = values
-        self.all_names = names
-
-        self.update_from_multi_block()
-
-    def updated_matrix(self, _):
-        print("New matrix", self.matrix)
-        location = self.matrix[12:15]
-        y_vector = self.matrix[4:7]
-        
-        print("Slicing...")
-        self.current_multi_block = self.multi_block.clip(
-            normal=y_vector, origin=location
-        ).as_polydata_blocks()  # .fill_holes(hole_size=1e6)
-        # self.multi_block.cut_with_plane()
-        self.update_from_multi_block()
-        print("Updated")
-
-    @pn.io.hold()
-    def update_from_multi_block(
-        self,
-    ):
+    def to_dict(self):
         per_cell_verts = []
         per_cell_faces = []
 
         indexes = []
 
         print("Extracting meshes...")
-        for b in self.current_multi_block:
+        for b in self.multi_block:
             if len(b.points) > 0 and b.faces is not None:
                 # print(b.cells)
                 faces = b.faces
@@ -114,25 +55,14 @@ class ReactThreeFiber(ReactComponent):
                         for i in range(int(len(faces) / 4))
                     ]
                 )
-                indexes.append(self.all_names.index(b["cell_id"][0]))
+                indexes.append(self.names.index(b["cell_id"][0]))
         print("Meshes extracted.")
 
-        self.vertices = per_cell_verts
-        self.objects = per_cell_faces
+        x_bounds = (self.multi_block.bounds[0], self.multi_block.bounds[1])
+        y_bounds = (self.multi_block.bounds[2], self.multi_block.bounds[3])
+        z_bounds = (self.multi_block.bounds[4], self.multi_block.bounds[5])
 
-        print(len(indexes))
-
-        print("Extracting lists...")
-        self.colors = [self.all_colors[i] for i in indexes]
-        self.edge_colors = [self.all_edge_colors[i] for i in indexes]
-        self.values = [self.all_values[i] for i in indexes]
-        self.names = [self.all_names[i] for i in indexes]
-
-        x_bounds = (self.current_multi_block.bounds[0], self.current_multi_block.bounds[1])
-        y_bounds = (self.current_multi_block.bounds[2], self.current_multi_block.bounds[3])
-        z_bounds = (self.current_multi_block.bounds[4], self.current_multi_block.bounds[5])
-
-        self.axes_data_box = [
+        axes_data_box = [
             float(x_bounds[0]),
             float(x_bounds[1]),
             float(y_bounds[0]),
@@ -141,6 +71,137 @@ class ReactThreeFiber(ReactComponent):
             float(z_bounds[1]),
         ]
 
+        return {
+            "vertices": per_cell_verts,
+            "indices": per_cell_faces,
+            "colors": self.colors,
+            "edge_colors": self.edge_colors,
+            "values": self.values,
+            "names": self.names,
+            "axes_data_box": axes_data_box,
+            "type": "MultiBlock",
+        }
+    
+    def slice(self, normal, origin):
+        return MultiBlockData(
+            multi_block=self.multi_block.clip(normal=normal, origin=origin).as_polydata_blocks(),
+            colors=self.colors,
+            edge_colors=self.edge_colors,
+            values=self.values,
+            names=self.names,
+        )
+
+class ReactThreeFiber(ReactComponent):
+
+    _esm = "ReactThreeFiber.bundle.js"
+
+    # Properties to be sent to React Three Fiber
+    data_dict = param.List()
+
+    axes_range = param.List(default=[None, None, None, None, None, None])
+    axes_data_box = param.List(default=[None, None, None, None, None, None])
+    axes_visible = param.Boolean(default=True)
+
+    slice_tool_visible = param.Boolean(default=False)
+    slice_tool_scale = param.Number(default=1.)
+
+    display_axes_gizmo = param.Boolean(default=True)
+
+    display_color_map = param.Boolean(default=False)
+    color_map_colors = param.List(default=['#440154', '#482878', '#3E4989', '#31688E', '#26828E', '#1F9E89', '#35B779', '#6DCD59', '#B4DE2C', '#FDE725', '#FFFFE0'])
+    color_bar_bounds = param.Tuple(default=(0.0, 1.0))
+
+    intensity = param.Number(3.2)
+
+    matrix = param.List()
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        self.data_to_plot: List[PyvistaData] = []
+        self.sliced_data_to_plot: List[PyvistaData] = []
+
+        self.param.watch(self.updated_matrix, "matrix")
+
+    def display_color_bar(
+        self,
+        color_map_colors: List[str] = ['#440154', '#482878', '#3E4989', '#31688E', '#26828E', '#1F9E89', '#35B779', '#6DCD59', '#B4DE2C', '#FDE725', '#FFFFE0'],
+        color_bar_bounds: Tuple[float, float] = (0.0, 1.0)
+    ):
+        self.display_color_map = True
+        self.color_map_colors = color_map_colors
+        self.color_bar_bounds = color_bar_bounds
+
+    def plot_multi_block(
+        self,
+        multi_block: pv.MultiBlock,
+        colors: List[Tuple[float, float, float]],
+        edge_colors: List[Tuple[float, float, float]],
+        values: List[float],
+        names: List[str]
+    ):
+        self.data_to_plot.append(
+            MultiBlockData(
+                multi_block=multi_block,
+                colors=colors,
+                edge_colors=edge_colors,
+                values=values,
+                names=names,
+            )
+        )
+        self.sliced_data_to_plot.append(
+            MultiBlockData(
+                multi_block=multi_block,
+                colors=colors,
+                edge_colors=edge_colors,
+                values=values,
+                names=names,
+            )
+        )
+
+        self.updata_data()
+
+    def updated_matrix(self, _):
+        location = self.matrix[12:15]
+        y_vector = self.matrix[4:7]
+        
+
+        for element in self.data_to_plot:
+            self.sliced_data_to_plot.append(element.slice(
+                normal=y_vector, origin=location)
+            )
+            
+        self.updata_data()
+        print("Updated")
+
+    @pn.io.hold()
+    def updata_data(
+        self,
+    ):
+        self.data_dict = [
+            d.to_dict() for d in self.sliced_data_to_plot
+        ] 
+
+        if len(self.data_dict) == 0:
+            return
+
+        self.axes_data_box = [
+            min([float(d["axes_data_box"][0]) for d in self.data_dict]),
+            max([float(d["axes_data_box"][1]) for d in self.data_dict]),
+            min([float(d["axes_data_box"][2]) for d in self.data_dict]),
+            max([float(d["axes_data_box"][3]) for d in self.data_dict]),
+            min([float(d["axes_data_box"][4]) for d in self.data_dict]),
+            max([float(d["axes_data_box"][5]) for d in self.data_dict]),
+        ]
+
+        x_bounds = (self.axes_data_box[0], self.axes_data_box[1])
+        y_bounds = (self.axes_data_box[2], self.axes_data_box[3])
+        z_bounds = (self.axes_data_box[4], self.axes_data_box[5])
+        
         x_len = x_bounds[1] - x_bounds[0]
         y_len = y_bounds[1] - y_bounds[0]
         z_len = z_bounds[1] - z_bounds[0]
@@ -157,7 +218,6 @@ class ReactThreeFiber(ReactComponent):
             float(z_bounds[0]),
             float(z_bounds[1]),
         ]
-        print("Lists extracted.")
 
 
 if __name__ == "__main__":
@@ -194,7 +254,7 @@ if __name__ == "__main__":
         return cubes
 
     # Create the 3x3x3 grid of cubes
-    cube_grid = create_cube_grid(n=8, spacing=1.0)
+    cube_grid = create_cube_grid(n=10, spacing=1.0)
 
     mb = pv.MultiBlock(cube_grid)
     centers = np.array([mesh.center for mesh in cube_grid])
@@ -216,15 +276,23 @@ if __name__ == "__main__":
 
     count = len(colors)
 
-    rtf = ReactThreeFiber(multi_block=mb,
-                          colors = colors.tolist(),
-                          edge_colors = edge_colors.tolist(),
-                          values = list(range(count)),
-                          names = list(f"Object {i}" for i in range(count)),
+    rtf = ReactThreeFiber(
                           sizing_mode="stretch_both",
-                          color_map_colors = get_rd_bu(np.linspace(0,1,11), html=True),
-                          color_bar_bounds = (0, count-1),
+                          
                           )
+    
+    rtf.plot_multi_block(
+        multi_block=mb,
+        colors = colors.tolist(),
+        edge_colors = edge_colors.tolist(),
+        values = list(range(count)),
+        names = list(f"Object {i}" for i in range(count)),
+    )
+
+    rtf.display_color_bar(
+        color_map_colors = get_rd_bu(np.linspace(0,1,11), html=True),
+        color_bar_bounds = (0, count-1),
+    )
 
     def toggle_slice_tool(event):
         print("Toggle slice tool to ", not rtf.slice_tool_visible)

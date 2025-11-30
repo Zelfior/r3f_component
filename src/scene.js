@@ -3,7 +3,7 @@ import { AxesHelper } from './axis.js';
 
 import * as THREE from 'three';
 import { useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, GizmoHelper, GizmoViewport, PivotControls } from '@react-three/drei';
+import { OrbitControls, GizmoHelper, GizmoViewport, PivotControls, calcPosFromAngles } from '@react-three/drei';
 import { useEffect, useRef, useState } from 'react';
 
 
@@ -25,7 +25,18 @@ function SliceSquare({ scale }) {
     );
 }
 
-function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, pySetMatrix, displayAxesGizmo, displaySliceTool, squareScale, displayAxes, axesBoundingBox, dataBoundingBox }) {
+function Scene({
+    setHoveredCell,
+    setTargetPosition,
+    setTooltipPos,
+    regionMap,
+    pySetMatrix,
+    displayAxesGizmo,
+    displaySliceTool,
+    squareScale,
+    displayAxes,
+    axesBoundingBox,
+    dataBoundingBox }) {
     const { scene, camera, pointer, size } = useThree();
     const [isMouseMoving, setIsMouseMoving] = useState(false);
 
@@ -65,7 +76,9 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, py
                 const regionIdAttr = object.geometry.attributes.regionId;
                 const regionId = regionIdAttr.getX(face.a);
                 const region = regionMap.find((r) => r.id === regionId);
-                if (region) setHoveredCell(region);
+                if (region) {
+                    setHoveredCell(region);
+                }
             }
         } else {
             setHoveredCell(null);

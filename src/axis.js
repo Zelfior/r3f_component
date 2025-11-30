@@ -5,7 +5,6 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
 function drawLine(direction, center, halfLength, tickLocationHalfLength, halfTickLength, tickDirection, label, lineColor = "lightgray", labelColor = "gray", lineWidth = 1.5, axesNameSize = 0.5) {
-    console.log("direction", direction, "center", center, "halfLength", halfLength, "tickLocationHalfLength", tickLocationHalfLength, "halfTickLength", halfTickLength, "tickDirection", tickDirection, "label", label);
     const textRef = useRef()
     const firstTickRef = useRef()
     const secondTickRef = useRef()

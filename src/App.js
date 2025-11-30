@@ -2,139 +2,20 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { Canvas } from '@react-three/fiber';
 import { Grid, Stats } from '@react-three/drei';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+
 import * as THREE from 'three';
 
-import BufferGeometryUtils from './BufferGeometryUtils.js';
 import { Scene } from './scene.js';
 import { MatplotlibColorbar } from "./colorbar.js";
+import { HoverTool } from "./hoverTool.js";
+import { MultiBlockData } from "./data_block.js";
 
-function MergedMesh({
-    vertices,
-    indices,
-    colors,
-    edge_colors,
-    values,
-    names,
-    hoveredName,
-    setRegionInfo,
-}) {
-
-    const mergedData = useMemo(() => {
-        const geometries = [];
-        const edgesGeometries = [];
-        const regionMap = [];
-
-        let vertexOffset = 0;
-        vertices.forEach((_, i) => {
-            const geom = new THREE.BufferGeometry();
-            const positionArray = new Float32Array(vertices[i].flat());
-            const indexArray = new Uint16Array(indices[i].flat());
-
-            geom.setAttribute("position", new THREE.BufferAttribute(positionArray, 3));
-            geom.setIndex(new THREE.BufferAttribute(indexArray, 1));
-
-            // Optional: region id
-            const regionIdArray = new Float32Array(vertices[i].length).fill(i);
-            geom.setAttribute("regionId", new THREE.BufferAttribute(regionIdArray, 1));
-
-            // ✅ Assign per-vertex color
-            const color = hoveredName === names[i] ? edge_colors[i] : colors[i];
-            const colorArray = new Float32Array(vertices[i].length * 3);
-            for (let j = 0; j < vertices[i].length; j++) {
-                colorArray[j * 3] = color[0];
-                colorArray[j * 3 + 1] = color[1];
-                colorArray[j * 3 + 2] = color[2];
-            }
-            geom.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
-
-            regionMap.push({
-                id: i,
-                name: names[i],
-                value: values[i],
-                idOffset: vertexOffset,
-                vertexCount: vertices[i].length,
-            });
-
-            vertexOffset += vertices[i].length; // increment by number of vertices
-            geometries.push(geom);
-            edgesGeometries.push(new THREE.EdgesGeometry(geom));
-        });
-
-        const mergedEdges = BufferGeometryUtils.mergeGeometries(edgesGeometries, false);
-
-        const mergedEdgesColorArray = new Float32Array(mergedEdges.attributes.position.count * 3);
-        let offset = 0;
-        edgesGeometries.forEach((edgeGeom, i) => {
-            const color = edge_colors[i];
-            for (let j = 0; j < edgeGeom.attributes.position.count; j++) {
-                mergedEdgesColorArray[(offset + j) * 3] = color[0];
-                mergedEdgesColorArray[(offset + j) * 3 + 1] = color[1];
-                mergedEdgesColorArray[(offset + j) * 3 + 2] = color[2];
-            }
-            offset += edgeGeom.attributes.position.count;
-        });
-        mergedEdges.setAttribute('color', new THREE.BufferAttribute(mergedEdgesColorArray, 3));
-
-        const merged = BufferGeometryUtils.mergeGeometries(geometries, false);
-
-        return { geometry: merged, mergedEdges: mergedEdges, regionMap };
-    }, [vertices, indices, colors, names, values]);
-
-    const { geometry, regionMap, mergedEdges } = mergedData;
-
-    useEffect(() => {
-        if (!geometry) return;
-
-        const colorAttr = geometry.getAttribute("color");
-        if (!colorAttr) return;
-
-        const newColorArray = new Float32Array(colorAttr.array.length);
-
-        // Build the whole new array from scratch
-        regionMap.forEach((region, i) => {
-            const color = hoveredName === names[i] ? edge_colors[i] : colors[i];
-            for (let j = 0; j < region.vertexCount; j++) {
-                const idx = (region.idOffset + j) * 3;
-                newColorArray[idx] = color[0];
-                newColorArray[idx + 1] = color[1];
-                newColorArray[idx + 2] = color[2];
-            }
-        });
-
-        // 🔁 Overwrite the buffer
-        geometry.setAttribute("color", new THREE.BufferAttribute(newColorArray, 3));
-        geometry.getAttribute("color").needsUpdate = true;
-
-        colorAttr.needsUpdate = true;
-    }, [colors, hoveredName]);
-
-
-    if (setRegionInfo) setRegionInfo(regionMap);
-
-    return (
-        <group>
-            <mesh geometry={geometry}>
-                <meshStandardMaterial emissive vertexColors emissiveIntensity={20.5} />
-            </mesh>
-            <lineSegments geometry={mergedEdges}>
-                <lineBasicMaterial vertexColors linewidth={1} />
-            </lineSegments>
-        </group>
-    );
-
-
-}
 
 function render({ model }) {
     let [intensity, pyIntensity] = model.useState("intensity");
 
-    let [vertices, pySetVertices] = model.useState("vertices");
-    let [indices, pySetObjects] = model.useState("objects");
-    let [colors, pySetColors] = model.useState("colors");
-    let [edge_colors, pySetEdgeColors] = model.useState("edge_colors");
-    let [values, pySetValues] = model.useState("values");
-    let [names, pySetNames] = model.useState("names");
+    let [data_dict, pySetDataDict] = model.useState("data_dict");
     let [matrix, pySetMatrix] = model.useState("matrix");
 
     let [displayAxesGizmo, pySetDisplayAxesGizmo] = model.useState("display_axes_gizmo");
@@ -146,6 +27,7 @@ function render({ model }) {
     let [axesVisible, pySetAxesVisible] = model.useState("axes_visible");
 
     const [hoveredCell, setHoveredCell] = useState(null);
+    const [hoveredCellType, setHoveredCellType] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0, z: 0 });
     const [targetPosition, setTargetPosition] = useState(null);
 
@@ -169,6 +51,62 @@ function render({ model }) {
     const [colorMapColors, pySetcolorMapColors] = model.useState("color_map_colors");
     const [colorBarBounds, pySetColorBarBounds] = model.useState("color_bar_bounds");
 
+    const colorBar = useMemo(() => (
+        <div
+            style={{
+                position: "absolute",
+                right: 20,
+                top: "50%",
+                transform: "translateY(-50%)",
+                pointerEvents: "none"
+            }}
+        >
+            <MatplotlibColorbar
+                color_list={colorMapColors}
+                min={colorBarBounds[0]}
+                max={colorBarBounds[1]}
+                orientation="vertical"
+                width={24}
+            // ticks={[0, 0.25, 0.5, 0.75, 1]}
+            // label="Field name"
+            />
+        </div>
+    ), [colorMapColors, colorBarBounds]);
+
+
+    const renderedObjects = useMemo(() => {
+        return data_dict.map((objectDict, i) => {
+            const {
+                type,
+                vertices,
+                indices,
+                colors,
+                edge_colors,
+                values,
+                names,
+            } = objectDict;
+
+            if (type === "MultiBlock") {
+                return (
+                    <MultiBlockData
+                        key={`multiblock-${i}`}
+                        vertices={vertices}
+                        indices={indices}
+                        colors={colors}
+                        edge_colors={edge_colors}
+                        values={values}
+                        names={names}
+                        hoveredName={hoveredCell && hoveredCell.name}
+                        setRegionInfo={setRegionMap}
+                    />
+                );
+            }
+
+            return null;
+        });
+    }, [data_dict, hoveredCell, setRegionMap]);
+
+
     return (
         <div
             id="canvas-container"
@@ -180,6 +118,7 @@ function render({ model }) {
                 <Grid infinite={true} cellSize={1} sectionSize={2} />
                 <Scene
                     setHoveredCell={setHoveredCell}
+                    setHoveredCellType={setHoveredCellType}
                     setTargetPosition={setTargetPosition}
                     setTooltipPos={setTooltipPos}
                     regionMap={regionMap} // <-- Pass regionMap
@@ -191,64 +130,16 @@ function render({ model }) {
                     axesBoundingBox={axesBoundingBox}
                     dataBoundingBox={dataBoundingBox}
                 />
-                <MergedMesh
-                    vertices={vertices}
-                    indices={indices}
-                    names={names}
-                    colors={colors}
-                    edge_colors={edge_colors}
-                    values={values}
-                    hoveredName={hoveredCell && hoveredCell.name} // Replace with your logic
-                    setRegionInfo={setRegionMap}
-                />
+                {renderedObjects}
                 <Stats />
             </Canvas>
-            {hoveredCell && (
-                <div
-                    style={{
-                        position: "absolute",
-                        pointerEvents: "none",
-                        left: tooltipPos.x + 10,
-                        top: tooltipPos.y + 10,
-                        background: "rgba(0,0,0,0.7)",
-                        color: "white",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        fontFamily: "sans-serif",
-                        whiteSpace: "nowrap",
-                    }}
-                >
-                    <div>Cell : {hoveredCell.name}</div>
-                    <div>
-                        Location : {targetPosition.x.toFixed(2)},{" "}
-                        {targetPosition.y.toFixed(2)}, {targetPosition.z.toFixed(2)}
-                    </div>
-                    <div>Value : {hoveredCell.value}</div>
-                </div>
-            )}
-            {displayColorBar && (
-                <div
-                    style={{
-                        position: "absolute",
-                        right: 20,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        pointerEvents: "none"
-                    }}
-                >
-                    <MatplotlibColorbar
-                        color_list={colorMapColors}
-                        min={colorBarBounds[0]}
-                        max={colorBarBounds[1]}
-                        orientation="vertical"
-                        width={24}
-                        // ticks={[0, 0.25, 0.5, 0.75, 1]}
-                        // label="Field name"
-                    />
-                </div>
-            )}
-
+            <HoverTool
+                hoveredCell={hoveredCell}
+                hoveredCellType={hoveredCellType}
+                tooltipPos={tooltipPos}
+                targetPosition={targetPosition}
+            />
+            {displayColorBar && colorBar}
         </div>
     );
 }
