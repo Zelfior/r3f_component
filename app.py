@@ -10,10 +10,15 @@ from panel.custom import ReactComponent
 
 pn.extension()
 
-def get_rd_bu(values):
+def get_rd_bu(values, html=False):
     """Return a red-blue colormap with n colors."""
     import matplotlib
-    return matplotlib.colormaps["RdBu"](values)
+    cmap = matplotlib.colormaps["RdBu"]
+    rgba_colors = cmap(values)
+    if not html:
+        return rgba_colors
+    html_colors = [matplotlib.colors.rgb2hex(rgba[:3]) for rgba in rgba_colors]
+    return html_colors
 
 class ReactThreeFiber(ReactComponent):
 
@@ -36,6 +41,10 @@ class ReactThreeFiber(ReactComponent):
     slice_tool_scale = param.Number(default=1.)
 
     display_axes_gizmo = param.Boolean(default=True)
+
+    display_color_map = param.Boolean(default=True)
+    color_map_colors = param.List(default=['#440154', '#482878', '#3E4989', '#31688E', '#26828E', '#1F9E89', '#35B779', '#6DCD59', '#B4DE2C', '#FDE725', '#FFFFE0'])
+    color_bar_bounds = param.Tuple(default=(0.0, 1.0))
 
     intensity = param.Number(3.2)
 
@@ -132,7 +141,6 @@ class ReactThreeFiber(ReactComponent):
             float(z_bounds[1]),
         ]
 
-
         x_len = x_bounds[1] - x_bounds[0]
         y_len = y_bounds[1] - y_bounds[0]
         z_len = z_bounds[1] - z_bounds[0]
@@ -206,8 +214,6 @@ if __name__ == "__main__":
         colors.shape
     )
 
-    print(edge_colors)
-
     count = len(colors)
 
     rtf = ReactThreeFiber(multi_block=mb,
@@ -215,7 +221,9 @@ if __name__ == "__main__":
                           edge_colors = edge_colors.tolist(),
                           values = list(range(count)),
                           names = list(f"Object {i}" for i in range(count)),
-                          sizing_mode="stretch_both"
+                          sizing_mode="stretch_both",
+                          color_map_colors = get_rd_bu(np.linspace(0,1,11), html=True),
+                          color_bar_bounds = (0, count-1),
                           )
 
     def toggle_slice_tool(event):

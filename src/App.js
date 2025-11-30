@@ -9,7 +9,8 @@ import * as THREE from 'three';
 import { Perf } from 'r3f-perf'
 
 import BufferGeometryUtils from './BufferGeometryUtils.js';
-import {AxesHelper} from './axis.js';
+import { AxesHelper } from './axis.js';
+import { MatplotlibColorbar } from "./colorbar.js";
 
 import { min } from "three/examples/jsm/nodes/Nodes.js";
 
@@ -146,7 +147,7 @@ function MergedMesh({
     );
 
 
-} 
+}
 
 function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, pySetMatrix, displayAxesGizmo, displaySliceTool, squareScale, displayAxes, axesBoundingBox, dataBoundingBox }) {
     const { scene, camera, pointer, size } = useThree();
@@ -208,7 +209,7 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, py
             />
             {displayAxesGizmo && (
                 <GizmoHelper
-                    alignment="bottom-right"
+                    alignment="bottom-left"
                     margin={[80, 80]}
                 // Optional: Use a callback to detect drag state
                 >
@@ -232,7 +233,7 @@ function Scene({ setHoveredCell, setTargetPosition, setTooltipPos, regionMap, py
                 </PivotControls>
             )}
             {displayAxes && (
-                <AxesHelper boundingBox={axesBoundingBox} dataBox={dataBoundingBox}/>
+                <AxesHelper boundingBox={axesBoundingBox} dataBox={dataBoundingBox} />
             )}
         </>
     );
@@ -276,6 +277,10 @@ function render({ model }) {
             max: new THREE.Vector3(dataBox[1], dataBox[3], dataBox[5]),
         };
     }, [dataBox]);
+
+    const [displayColorBar, pySetdisplayColorBar] = model.useState("display_color_map");
+    const [colorMapColors, pySetcolorMapColors] = model.useState("color_map_colors");
+    const [colorBarBounds, pySetColorBarBounds] = model.useState("color_bar_bounds");
 
     return (
         <div
@@ -335,6 +340,28 @@ function render({ model }) {
                     <div>Value : {hoveredCell.value}</div>
                 </div>
             )}
+            {displayColorBar && (
+                <div
+                    style={{
+                        position: "absolute",
+                        right: 20,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        pointerEvents: "none"
+                    }}
+                >
+                    <MatplotlibColorbar
+                        color_list={colorMapColors}
+                        min={colorBarBounds[0]}
+                        max={colorBarBounds[1]}
+                        orientation="vertical"
+                        width={24}
+                        // ticks={[0, 0.25, 0.5, 0.75, 1]}
+                    // label="Strength"
+                    />
+                </div>
+            )}
+
         </div>
     );
 }
