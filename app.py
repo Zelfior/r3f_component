@@ -256,6 +256,10 @@ if __name__ == "__main__":
             label="Toggle Axes Visibility",
             on_click=lambda event: setattr(rtf, 'axes_visible', not rtf.axes_visible),
         ),
+        pmui.Button(
+            label="Toggle Colorbar Visibility",
+            on_click=lambda event: setattr(rtf, 'display_color_map', not rtf.display_color_map),
+        ),
         scale_input,
         styles=dict(background='WhiteSmoke'),
         sizing_mode="stretch_height",
