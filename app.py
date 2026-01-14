@@ -7,6 +7,8 @@ import param
 import numpy as np
 import pyvista as pv
 
+from scivianna.data.data3d import Data3D
+
 from panel.custom import ReactComponent
 
 pn.extension()
@@ -96,6 +98,67 @@ class MultiBlockData(PyvistaData):
             values=self.values,
             names=self.names,
         )
+
+
+@dataclass
+class Data3DData(PyvistaData):
+    data: Data3D
+
+    def to_dict(self):
+        per_cell_verts = []
+        per_cell_faces = []
+
+        indexes = []
+
+        print("Extracting meshes...")
+        for p in self.data.get_polygons():
+            per_cell_verts.append(
+                [
+                    [c.x_coords[i], c.y_coords[i], c.z_coords[i]]
+                    for c in p.cells for i in range(len(c.x_coords))
+                ]
+            )
+            per_cell_faces.append(
+                [
+                    [3 * i, 3 * i + 1, 3 * i + 2]
+                    for i in range(len(p.cells))
+                ]
+            )
+            indexes.append(p.cell_id)
+        print("Meshes extracted.")
+
+        x_vals = [x[0] for e in per_cell_verts for x in e]
+        y_vals = [y[1] for e in per_cell_verts for y in e]
+        z_vals = [z[2] for e in per_cell_verts for z in e]
+
+        # print(x_vals)
+
+        x_bounds = (min(x_vals), max(x_vals))
+        y_bounds = (min(y_vals), max(y_vals))
+        z_bounds = (min(z_vals), max(z_vals))
+
+        axes_data_box = [
+            float(x_bounds[0]),
+            float(x_bounds[1]),
+            float(y_bounds[0]),
+            float(y_bounds[1]),
+            float(z_bounds[0]),
+            float(z_bounds[1]),
+        ]
+
+        return {
+            "vertices": per_cell_verts,
+            "indices": per_cell_faces,
+            "colors": (np.array(self.data.cell_colors)/255).tolist(),
+            "edge_colors": (np.array(self.data.cell_edge_colors)/255).tolist(),
+            "values": self.data.cell_values,
+            "names": self.data.cell_ids,
+            "axes_data_box": axes_data_box,
+            "type": "MultiBlock",
+        }
+
+    def slice(self, normal, origin):
+        raise NotImplementedError()
 
 
 @dataclass
@@ -232,7 +295,7 @@ class ReactThreeFiber(ReactComponent):
         self.data_to_plot: List[PyvistaData] = []
         self.sliced_data_to_plot: List[PyvistaData] = []
 
-        # self.param.watch(self.updated_matrix, "matrix")
+        self.param.watch(self.updated_matrix, "matrix")
 
     def display_color_bar(
         self,
@@ -313,16 +376,37 @@ class ReactThreeFiber(ReactComponent):
 
         self.updata_data()
 
+    def plot_data3d(
+        self,
+        data: Data3D
+    ):
+        self.data_to_plot.append(
+            Data3DData(
+                data=data
+            )
+        )
+        self.sliced_data_to_plot.append(
+            Data3DData(
+                data=data
+            )
+        )
+
+        self.updata_data()
+
     def updated_matrix(self, _):
         location = self.matrix[12:15]
         y_vector = self.matrix[4:7]
 
-        for element in self.data_to_plot:
-            self.sliced_data_to_plot.append(
-                element.slice(normal=y_vector, origin=location)
-            )
+        print("Moved frame to ", location, y_vector)
 
-        self.updata_data()
+        return
+
+        # for element in self.data_to_plot:
+        #     self.sliced_data_to_plot.append(
+        #         element.slice(normal=y_vector, origin=location)
+        #     )
+
+        # self.updata_data()
 
     @pn.io.hold()
     def updata_data(
@@ -364,6 +448,16 @@ class ReactThreeFiber(ReactComponent):
         ]
 
         self.slice_tool_scale = max([x_len, y_len, z_len])
+
+        vals = np.array(self.data_dict[0]["values"])
+        try:
+            vals = vals.astype(float)
+            self.display_color_map = True
+            self.color_bar_bounds = (vals.min(), vals.max())
+
+        except Exception as e:
+            print(e)
+            self.display_color_map = False
 
 
 if __name__ == "__main__":
