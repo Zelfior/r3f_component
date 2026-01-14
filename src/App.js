@@ -2,7 +2,7 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { Canvas } from '@react-three/fiber';
 import { Grid, Stats } from '@react-three/drei';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 
 import * as THREE from 'three';
 
@@ -10,6 +10,7 @@ import { Scene } from './scene.js';
 import { MatplotlibColorbar } from "./colorbar.js";
 import { HoverTool } from "./hoverTool.js";
 import { MultiBlockData } from "./data_block.js";
+import { UnstructuredGridData } from "./unstructured_grid.js";
 
 
 function render({ model }) {
@@ -73,6 +74,7 @@ function render({ model }) {
         </div>
     ), [colorMapColors, colorBarBounds]);
 
+    const boolTargetRef = useRef(null);
 
     const renderedObjects = useMemo(() => {
         return data_dict.map((objectDict, i) => {
@@ -98,8 +100,29 @@ function render({ model }) {
                         names={names}
                         hoveredName={hoveredCell && hoveredCell.name}
                         setRegionInfo={setRegionMap}
+                        boolTargetRef={boolTargetRef}
                     />
                 );
+            }
+            else if (type === "UnstructuredGrid") {
+                return (
+                    <UnstructuredGridData
+                        key={`unstructured_grid-${i}`}
+                        vertices={vertices}
+                        indices={indices}
+                        colors={colors}
+                        edge_colors={edge_colors}
+                        values={values}
+                        names={names}
+                        hoveredName={hoveredCell && hoveredCell.name}
+                        setRegionInfo={setRegionMap}
+                        boolTargetRef={boolTargetRef}
+                    />
+                );
+            }
+            else{
+                console.error("Given type not implemented :", type);
+                
             }
 
             return null;
@@ -129,6 +152,7 @@ function render({ model }) {
                     displayAxes={axesVisible}
                     axesBoundingBox={axesBoundingBox}
                     dataBoundingBox={dataBoundingBox}
+                    boolTargetRef={boolTargetRef}
                 />
                 {renderedObjects}
                 <Stats />

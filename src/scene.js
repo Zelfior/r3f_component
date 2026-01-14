@@ -4,7 +4,7 @@ import { AxesHelper } from './axis.js';
 import * as THREE from 'three';
 import { useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport, PivotControls, calcPosFromAngles } from '@react-three/drei';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 
 
 function SliceSquare({ scale }) {
@@ -116,6 +116,8 @@ function Scene({
                         pySetMatrix(controlRef.current.matrix.toArray());
                     }}
                     disableScaling={true}
+                    depthTest={false}
+                    opacity={0.8}
                 >
                     <SliceSquare scale={squareScale} />
                 </PivotControls>

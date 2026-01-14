@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import BufferGeometryUtils from './BufferGeometryUtils.js';
 
 
-function MultiBlockData({
+function UnstructuredGridData({
     vertices,
     indices,
     colors,
@@ -15,6 +15,7 @@ function MultiBlockData({
     hoveredName,
     setRegionInfo,
 }) {
+    console.log("Displaying unstructured grid, cell count : ", indices.length);
 
     const mergedData = useMemo(() => {
         const geometries = [];
@@ -22,22 +23,22 @@ function MultiBlockData({
         const regionMap = [];
 
         let vertexOffset = 0;
-        vertices.forEach((_, i) => {
+        indices.forEach((_, i) => {
             const geom = new THREE.BufferGeometry();
-            const positionArray = new Float32Array(vertices[i].flat());
+            const positionArray = new Float32Array(vertices.flat());
             const indexArray = new Uint16Array(indices[i].flat());
 
             geom.setAttribute("position", new THREE.BufferAttribute(positionArray, 3));
             geom.setIndex(new THREE.BufferAttribute(indexArray, 1));
 
             // Optional: region id
-            const regionIdArray = new Float32Array(vertices[i].length).fill(i);
+            const regionIdArray = new Float32Array(vertices.length).fill(i);
             geom.setAttribute("regionId", new THREE.BufferAttribute(regionIdArray, 1));
 
             // ✅ Assign per-vertex color
             const color = hoveredName === names[i] ? edge_colors[i] : colors[i];
-            const colorArray = new Float32Array(vertices[i].length * 3);
-            for (let j = 0; j < vertices[i].length; j++) {
+            const colorArray = new Float32Array(vertices.length * 3);
+            for (let j = 0; j < vertices.length; j++) {
                 colorArray[j * 3] = color[0];
                 colorArray[j * 3 + 1] = color[1];
                 colorArray[j * 3 + 2] = color[2];
@@ -48,12 +49,12 @@ function MultiBlockData({
                 id: i,
                 name: names[i],
                 value: values[i],
-                idOffset: vertexOffset,
-                vertexCount: vertices[i].length,
+                // idOffset: vertexOffset,
+                vertexCount: vertices.length,
                 cellType: "MultiBlock",
             });
 
-            vertexOffset += vertices[i].length; // increment by number of vertices
+            // vertexOffset += vertices.length; // increment by number of vertices
             geometries.push(geom);
             edgesGeometries.push(new THREE.EdgesGeometry(geom));
         });
@@ -130,4 +131,4 @@ function MultiBlockData({
 
 
 }
-export { MultiBlockData };
+export { UnstructuredGridData };

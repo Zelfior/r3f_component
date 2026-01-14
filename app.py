@@ -11,15 +11,18 @@ from panel.custom import ReactComponent
 
 pn.extension()
 
+
 def get_rd_bu(values, html=False):
     """Return a red-blue colormap with n colors."""
     import matplotlib
+
     cmap = matplotlib.colormaps["RdBu"]
     rgba_colors = cmap(values)
     if not html:
         return rgba_colors
     html_colors = [matplotlib.colors.rgb2hex(rgba[:3]) for rgba in rgba_colors]
     return html_colors
+
 
 @dataclass
 class PyvistaData:
@@ -28,7 +31,8 @@ class PyvistaData:
 
     def slice(self, normal: List[float], origin: List[float]):
         raise NotImplementedError()
-    
+
+
 @dataclass
 class MultiBlockData(PyvistaData):
     multi_block: pv.MultiBlock
@@ -51,7 +55,7 @@ class MultiBlockData(PyvistaData):
                 per_cell_verts.append(b.points.tolist())
                 per_cell_faces.append(
                     [
-                        list(faces[1 + 4 * i : 4 + 4 * i])
+                        list(faces[1 + 4 * i: 4 + 4 * i])
                         for i in range(int(len(faces) / 4))
                     ]
                 )
@@ -81,15 +85,104 @@ class MultiBlockData(PyvistaData):
             "axes_data_box": axes_data_box,
             "type": "MultiBlock",
         }
-    
+
     def slice(self, normal, origin):
         return MultiBlockData(
-            multi_block=self.multi_block.clip(normal=normal, origin=origin).as_polydata_blocks(),
+            multi_block=self.multi_block.clip(
+                normal=normal, origin=origin
+            ).as_polydata_blocks(),
             colors=self.colors,
             edge_colors=self.edge_colors,
             values=self.values,
             names=self.names,
         )
+
+
+@dataclass
+class UnstructuredGridData(PyvistaData):
+    grid: pv.UnstructuredGrid
+    colors: List[Tuple[float, float, float]]
+    edge_colors: List[Tuple[float, float, float]]
+    values: List[float]
+    names: List[str]
+
+    def to_dict(self):
+        indexes = []
+
+        all_points = np.array(self.grid.points)
+
+        vertices = []
+        indices = []
+
+        for c in range(self.grid.GetNumberOfCells()):
+            cell = self.grid.get_cell(c)
+
+            cell_points = all_points[np.array(cell.point_ids)].tolist()
+            vertices.append(cell_points)
+
+            sorter = np.argsort(cell.point_ids)
+            remapped_indices = np.array([
+                sorter[
+                    np.searchsorted(cell.point_ids, face.point_ids, sorter=sorter)
+                ].tolist()
+                for face in self.grid.get_cell(c).faces
+            ])
+
+            poly = pv.PolyData(cell_points, np.concatenate(
+                [[[remapped_indices.shape[1]]] * remapped_indices.shape[0], remapped_indices], axis=1
+            )).triangulate()
+
+            indices.append(
+                [
+                    list(poly.faces[1 + 4 * i: 4 + 4 * i])
+                    for i in range(int(len(poly.faces) / 4))
+                ]
+            )
+
+            indexes.append(self.grid["cell_id"][c])
+
+        print("Meshes extracted.")
+
+        x_bounds = (self.grid.bounds[0], self.grid.bounds[1])
+        y_bounds = (self.grid.bounds[2], self.grid.bounds[3])
+        z_bounds = (self.grid.bounds[4], self.grid.bounds[5])
+
+        axes_data_box = [
+            float(x_bounds[0]),
+            float(x_bounds[1]),
+            float(y_bounds[0]),
+            float(y_bounds[1]),
+            float(z_bounds[0]),
+            float(z_bounds[1]),
+        ]
+
+        indexes = np.array(indexes)
+
+        colors = np.array(self.colors)[indexes].tolist()
+        edge_colors = np.array(self.edge_colors)[indexes].tolist()
+        values = np.array(self.values)[indexes].tolist()
+        names = np.array(self.names)[indexes].tolist()
+
+        return {
+            "vertices": vertices,
+            "indices": indices,
+            "colors": colors,
+            "edge_colors": edge_colors,
+            "values": values,
+            "names": names,
+            "axes_data_box": axes_data_box,
+            "type": "MultiBlock",
+        }
+
+    def slice(self, normal, origin):
+        return UnstructuredGridData(
+            grid=self.grid.clip(normal=normal, origin=origin),
+            colors=self.colors,
+            edge_colors=self.edge_colors,
+            values=self.values,
+            names=self.names,
+        )
+
 
 class ReactThreeFiber(ReactComponent):
 
@@ -103,12 +196,26 @@ class ReactThreeFiber(ReactComponent):
     axes_visible = param.Boolean(default=True)
 
     slice_tool_visible = param.Boolean(default=False)
-    slice_tool_scale = param.Number(default=1.)
+    slice_tool_scale = param.Number(default=1.0)
 
     display_axes_gizmo = param.Boolean(default=True)
 
     display_color_map = param.Boolean(default=False)
-    color_map_colors = param.List(default=['#440154', '#482878', '#3E4989', '#31688E', '#26828E', '#1F9E89', '#35B779', '#6DCD59', '#B4DE2C', '#FDE725', '#FFFFE0'])
+    color_map_colors = param.List(
+        default=[
+            "#440154",
+            "#482878",
+            "#3E4989",
+            "#31688E",
+            "#26828E",
+            "#1F9E89",
+            "#35B779",
+            "#6DCD59",
+            "#B4DE2C",
+            "#FDE725",
+            "#FFFFE0",
+        ]
+    )
     color_bar_bounds = param.Tuple(default=(0.0, 1.0))
 
     intensity = param.Number(3.2)
@@ -125,12 +232,24 @@ class ReactThreeFiber(ReactComponent):
         self.data_to_plot: List[PyvistaData] = []
         self.sliced_data_to_plot: List[PyvistaData] = []
 
-        self.param.watch(self.updated_matrix, "matrix")
+        # self.param.watch(self.updated_matrix, "matrix")
 
     def display_color_bar(
         self,
-        color_map_colors: List[str] = ['#440154', '#482878', '#3E4989', '#31688E', '#26828E', '#1F9E89', '#35B779', '#6DCD59', '#B4DE2C', '#FDE725', '#FFFFE0'],
-        color_bar_bounds: Tuple[float, float] = (0.0, 1.0)
+        color_map_colors: List[str] = [
+            "#440154",
+            "#482878",
+            "#3E4989",
+            "#31688E",
+            "#26828E",
+            "#1F9E89",
+            "#35B779",
+            "#6DCD59",
+            "#B4DE2C",
+            "#FDE725",
+            "#FFFFE0",
+        ],
+        color_bar_bounds: Tuple[float, float] = (0.0, 1.0),
     ):
         self.display_color_map = True
         self.color_map_colors = color_map_colors
@@ -142,7 +261,7 @@ class ReactThreeFiber(ReactComponent):
         colors: List[Tuple[float, float, float]],
         edge_colors: List[Tuple[float, float, float]],
         values: List[float],
-        names: List[str]
+        names: List[str],
     ):
         self.data_to_plot.append(
             MultiBlockData(
@@ -165,26 +284,51 @@ class ReactThreeFiber(ReactComponent):
 
         self.updata_data()
 
+    def plot_unstructured_grid(
+        self,
+        grid: pv.UnstructuredGrid,
+        colors: List[Tuple[float, float, float]],
+        edge_colors: List[Tuple[float, float, float]],
+        values: List[float],
+        names: List[str],
+    ):
+        self.data_to_plot.append(
+            UnstructuredGridData(
+                grid=grid,
+                colors=colors,
+                edge_colors=edge_colors,
+                values=values,
+                names=names,
+            )
+        )
+        self.sliced_data_to_plot.append(
+            UnstructuredGridData(
+                grid=grid,
+                colors=colors,
+                edge_colors=edge_colors,
+                values=values,
+                names=names,
+            )
+        )
+
+        self.updata_data()
+
     def updated_matrix(self, _):
         location = self.matrix[12:15]
         y_vector = self.matrix[4:7]
-        
 
         for element in self.data_to_plot:
-            self.sliced_data_to_plot.append(element.slice(
-                normal=y_vector, origin=location)
+            self.sliced_data_to_plot.append(
+                element.slice(normal=y_vector, origin=location)
             )
-            
+
         self.updata_data()
-        print("Updated")
 
     @pn.io.hold()
     def updata_data(
         self,
     ):
-        self.data_dict = [
-            d.to_dict() for d in self.sliced_data_to_plot
-        ] 
+        self.data_dict = [d.to_dict() for d in self.sliced_data_to_plot]
 
         if len(self.data_dict) == 0:
             return
@@ -201,7 +345,7 @@ class ReactThreeFiber(ReactComponent):
         x_bounds = (self.axes_data_box[0], self.axes_data_box[1])
         y_bounds = (self.axes_data_box[2], self.axes_data_box[3])
         z_bounds = (self.axes_data_box[4], self.axes_data_box[5])
-        
+
         x_len = x_bounds[1] - x_bounds[0]
         y_len = y_bounds[1] - y_bounds[0]
         z_len = z_bounds[1] - z_bounds[0]
@@ -218,6 +362,8 @@ class ReactThreeFiber(ReactComponent):
             float(z_bounds[0]),
             float(z_bounds[1]),
         ]
+
+        self.slice_tool_scale = max([x_len, y_len, z_len])
 
 
 if __name__ == "__main__":
@@ -246,9 +392,9 @@ if __name__ == "__main__":
                 for k in range(n):
                     # Translate the cube to its position in the grid
                     c = pv.Cube(
-                            center=(i * spacing, j * spacing, k * spacing)
-                        ).triangulate()
-                    c["cell_id"] = [f'Object {i * n * n + j * n + k}'] * len(c.points)
+                        center=(i * spacing, j * spacing, k * spacing)
+                    ).triangulate()
+                    c["cell_id"] = [f"Object {i * n * n + j * n + k}"] * len(c.points)
                     cubes.append(c)
 
         return cubes
@@ -277,21 +423,20 @@ if __name__ == "__main__":
     count = len(colors)
 
     rtf = ReactThreeFiber(
-                          sizing_mode="stretch_both",
-                          
-                          )
-    
+        sizing_mode="stretch_both",
+    )
+
     rtf.plot_multi_block(
         multi_block=mb,
-        colors = colors.tolist(),
-        edge_colors = edge_colors.tolist(),
-        values = list(range(count)),
-        names = list(f"Object {i}" for i in range(count)),
+        colors=colors.tolist(),
+        edge_colors=edge_colors.tolist(),
+        values=list(range(count)),
+        names=list(f"Object {i}" for i in range(count)),
     )
 
     rtf.display_color_bar(
-        color_map_colors = get_rd_bu(np.linspace(0,1,11), html=True),
-        color_bar_bounds = (0, count-1),
+        color_map_colors=get_rd_bu(np.linspace(0, 1, 11), html=True),
+        color_bar_bounds=(0, count - 1),
     )
 
     def toggle_slice_tool(event):
@@ -308,7 +453,7 @@ if __name__ == "__main__":
         step=0.1,
     )
     scale_input.param.watch(
-        lambda event: setattr(rtf, 'slice_tool_scale', event.new),
+        lambda event: setattr(rtf, "slice_tool_scale", event.new),
         "value",
     )
     row = pmui.Column(
@@ -322,14 +467,16 @@ if __name__ == "__main__":
         ),
         pmui.Button(
             label="Toggle Axes Visibility",
-            on_click=lambda event: setattr(rtf, 'axes_visible', not rtf.axes_visible),
+            on_click=lambda event: setattr(rtf, "axes_visible", not rtf.axes_visible),
         ),
         pmui.Button(
             label="Toggle Colorbar Visibility",
-            on_click=lambda event: setattr(rtf, 'display_color_map', not rtf.display_color_map),
+            on_click=lambda event: setattr(
+                rtf, "display_color_map", not rtf.display_color_map
+            ),
         ),
         scale_input,
-        styles=dict(background='WhiteSmoke'),
+        styles=dict(background="WhiteSmoke"),
         sizing_mode="stretch_height",
     )
 
@@ -338,4 +485,3 @@ if __name__ == "__main__":
         main=[layout],
         title="React Three Fiber with PyVista MultiBlock",
     ).show()
-
