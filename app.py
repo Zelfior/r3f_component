@@ -337,9 +337,9 @@ class ReactThreeFiber(ReactComponent):
 
     def updated_matrix(self, _):
         location = self.matrix[12:15]
+        x_vector = self.matrix[:3]
         y_vector = self.matrix[4:7]
-
-        print("Moved frame to ", location, y_vector)
+        z_vector = self.matrix[8:11]
 
         return
 

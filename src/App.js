@@ -153,6 +153,7 @@ function render({ model }) {
                     setTargetPosition={setTargetPosition}
                     setTooltipPos={setTooltipPos}
                     regionMap={regionMap} // <-- Pass regionMap
+                    matrix={matrix}
                     pySetMatrix={pySetMatrix}
                     displayAxesGizmo={displayAxesGizmo}
                     displaySliceTool={displaySliceTool}

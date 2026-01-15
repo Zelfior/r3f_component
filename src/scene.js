@@ -30,6 +30,7 @@ function Scene({
     setTargetPosition,
     setTooltipPos,
     regionMap,
+    matrix,
     pySetMatrix,
     displayAxesGizmo,
     displaySliceTool,
@@ -90,6 +91,23 @@ function Scene({
     });
 
     const controlRef = useRef();
+
+    useEffect(() => {
+        if (!controlRef.current || !matrix) return;
+
+        const m = new THREE.Matrix4();
+        m.fromArray(matrix);
+
+        const obj = controlRef.current;
+        obj.matrixAutoUpdate = false;
+        obj.matrix.copy(m);
+
+        obj.matrix.decompose(
+            obj.position,
+            obj.quaternion,
+            obj.scale
+        );
+    }, [matrix]);
 
     return (
         <>
