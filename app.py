@@ -243,7 +243,12 @@ class ReactThreeFiber(ReactComponent):
     )
     color_bar_bounds = param.Tuple(default=(0.0, 1.0))
 
-    intensity = param.Number(3.2)
+    intensity = param.Number(1., bounds=(0., None))
+    axes_label_distance = param.Number(1., bounds=(0., None))
+    axes_font_size = param.Number(1., bounds=(0., None))
+    opacity = param.Number(1., bounds=(0, 1))
+
+    edges_visible = param.Boolean(True)
 
     matrix = param.List()
 

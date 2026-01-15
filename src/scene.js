@@ -36,7 +36,9 @@ function Scene({
     squareScale,
     displayAxes,
     axesBoundingBox,
-    dataBoundingBox }) {
+    dataBoundingBox,
+    axesLabelDistance,
+    axesFontSize }) {
     const { scene, camera, pointer, size } = useThree();
     const [isMouseMoving, setIsMouseMoving] = useState(false);
 
@@ -123,7 +125,12 @@ function Scene({
                 </PivotControls>
             )}
             {displayAxes && (
-                <AxesHelper boundingBox={axesBoundingBox} dataBox={dataBoundingBox} />
+                <AxesHelper 
+                    boundingBox={axesBoundingBox} 
+                    dataBox={dataBoundingBox}
+                    axesLabelDistance={axesLabelDistance}
+                    axesFontSize={axesFontSize}
+                />
             )}
         </>
     );

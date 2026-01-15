@@ -4,7 +4,7 @@ import { Line, Text } from '@react-three/drei';
 import { useRef, useState, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
-function drawLine(direction, center, halfLength, tickLocationHalfLength, halfTickLength, tickDirection, label, lineColor = "lightgray", labelColor = "gray", lineWidth = 1.5, axesNameSize = 0.5) {
+function drawLine(direction, center, halfLength, tickLocationHalfLength, halfTickLength, tickDirection, label, lineColor = "lightgray", labelColor = "gray", lineWidth = 1.5, axesNameSize = 0.5, axesLabelDistance = 1.) {
     const textRef = useRef()
     const firstTickRef = useRef()
     const secondTickRef = useRef()
@@ -71,7 +71,7 @@ function drawLine(direction, center, halfLength, tickLocationHalfLength, halfTic
             />
             <Text
                 ref={textRef}
-                position={[center[0] - tickDirection[0] * axesNameSize * 1.2, center[1] - tickDirection[1] * axesNameSize * 1.2, center[2] - tickDirection[2] * axesNameSize * 1.2]}
+                position={[center[0] - tickDirection[0] * axesNameSize * 1.2 * axesLabelDistance, center[1] - tickDirection[1] * axesNameSize * 1.2 * axesLabelDistance, center[2] - tickDirection[2] * axesNameSize * 1.2 * axesLabelDistance]}
                 color={labelColor}
                 fontSize={axesNameSize*0.8}
                 lookAt={camera.position}
@@ -80,7 +80,7 @@ function drawLine(direction, center, halfLength, tickLocationHalfLength, halfTic
             </Text>
             <Text
                 ref={firstTickRef}
-                position={[first_tick_center[0] - tickDirection[0] * axesNameSize * 1.2, first_tick_center[1] - tickDirection[1] * axesNameSize * 1.2, first_tick_center[2] - tickDirection[2] * axesNameSize * 1.2]}
+                position={[first_tick_center[0] - tickDirection[0] * axesNameSize * 1.2 * axesLabelDistance, first_tick_center[1] - tickDirection[1] * axesNameSize * 1.2 * axesLabelDistance, first_tick_center[2] - tickDirection[2] * axesNameSize * 1.2 * axesLabelDistance]}
                 color={labelColor}
                 fontSize={axesNameSize*0.8}
                 lookAt={camera.position}
@@ -89,7 +89,7 @@ function drawLine(direction, center, halfLength, tickLocationHalfLength, halfTic
             </Text>
             <Text
                 ref={secondTickRef}
-                position={[second_tick_center[0] - tickDirection[0] * axesNameSize * 1.2, second_tick_center[1] - tickDirection[1] * axesNameSize * 1.2, second_tick_center[2] - tickDirection[2] * axesNameSize * 1.2]}
+                position={[second_tick_center[0] - tickDirection[0] * axesNameSize * 1.2 * axesLabelDistance, second_tick_center[1] - tickDirection[1] * axesNameSize * 1.2 * axesLabelDistance, second_tick_center[2] - tickDirection[2] * axesNameSize * 1.2 * axesLabelDistance]}
                 color={labelColor}
                 fontSize={axesNameSize*0.8}
                 lookAt={camera.position}
@@ -102,7 +102,7 @@ function drawLine(direction, center, halfLength, tickLocationHalfLength, halfTic
     return axAxis;
 }
 
-const AxesHelper = ({ boundingBox, dataBox }) => {
+const AxesHelper = ({ boundingBox, dataBox, axesLabelDistance, axesFontSize }) => {
 
     const { min, max } = boundingBox;
     const center = useMemo(() => [(min.x + max.x) / 2, (min.y + max.y) / 2, (min.z + max.z) / 2], [min, max]);
@@ -114,7 +114,7 @@ const AxesHelper = ({ boundingBox, dataBox }) => {
     const dataSize = useMemo(() => [dataMax.x - dataMin.x, dataMax.y - dataMin.y, dataMax.z - dataMin.z], [dataMin, dataMax]);
 
     const lineWidth = 1.5;
-    const axesNameSize = 0.5;
+    const axesNameSize = 0.5 * axesFontSize;
     const tickSize = 0.1;
     const tickSpacing = 0.2;
     const smallTickLength = 0.1; // Length of the small ticks at each extremity
@@ -195,13 +195,13 @@ const AxesHelper = ({ boundingBox, dataBox }) => {
     }
     
     // Memoize the X-axis lines, ticks, and small ticks
-    const xAxis = drawLine([1, 0, 0], xAxisCenter, size[0] / 2, dataSize[0] / 2, smallTickLength, tickDirectionX, 'X', "lightgray", "gray", lineWidth, axesNameSize);
+    const xAxis = drawLine([1, 0, 0], xAxisCenter, size[0] / 2, dataSize[0] / 2, smallTickLength, tickDirectionX, 'X', "lightgray", "gray", lineWidth, axesNameSize, axesLabelDistance);
 
     // Memoize the Y-axis lines, ticks, and small ticks
-    const yAxis = drawLine([0, 1, 0], yAxisCenter, size[1] / 2, dataSize[1] / 2, smallTickLength, tickDirectionY, 'Y', "lightgray", "gray", lineWidth, axesNameSize);
+    const yAxis = drawLine([0, 1, 0], yAxisCenter, size[1] / 2, dataSize[1] / 2, smallTickLength, tickDirectionY, 'Y', "lightgray", "gray", lineWidth, axesNameSize, axesLabelDistance);
 
     // Memoize the Z-axis lines, ticks, and small ticks
-    const zAxis = drawLine([0, 0, 1], zAxisCenter, size[2] / 2, dataSize[2] / 2, smallTickLength, tickDirectionZ, 'Z', "lightgray", "gray", lineWidth, axesNameSize);
+    const zAxis = drawLine([0, 0, 1], zAxisCenter, size[2] / 2, dataSize[2] / 2, smallTickLength, tickDirectionZ, 'Z', "lightgray", "gray", lineWidth, axesNameSize, axesLabelDistance);
 
     return (
         <>

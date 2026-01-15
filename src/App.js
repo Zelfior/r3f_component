@@ -14,7 +14,11 @@ import { UnstructuredGridData } from "./unstructured_grid.js";
 
 
 function render({ model }) {
+    let [opacity, pyOpacity] = model.useState("opacity");
     let [intensity, pyIntensity] = model.useState("intensity");
+    let [axesLabelDistance, pyAxesLabelDistance] = model.useState("axes_label_distance");
+    let [axesFontSize, pyAxesFontSize] = model.useState("axes_font_size");
+    let [edgesVisible, pyEdgesVisible] = model.useState("edges_visible");
 
     let [data_dict, pySetDataDict] = model.useState("data_dict");
     let [matrix, pySetMatrix] = model.useState("matrix");
@@ -101,6 +105,8 @@ function render({ model }) {
                         hoveredName={hoveredCell && hoveredCell.name}
                         setRegionInfo={setRegionMap}
                         boolTargetRef={boolTargetRef}
+                        edgesVisible={edgesVisible}
+                        opacity={opacity}
                     />
                 );
             }
@@ -117,6 +123,8 @@ function render({ model }) {
                         hoveredName={hoveredCell && hoveredCell.name}
                         setRegionInfo={setRegionMap}
                         boolTargetRef={boolTargetRef}
+                        edgesVisible={edgesVisible}
+                        opacity={opacity}
                     />
                 );
             }
@@ -136,7 +144,7 @@ function render({ model }) {
             style={{ position: "relative", width: "100%", height: "100%" }}
         >
             <Canvas camera={{ position: [0, 5, 10], up: [0, 0, 1] }} linear flat>
-                <ambientLight intensity={intensity} />
+                <ambientLight intensity={intensity*3.2} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
                 <Grid infinite={true} cellSize={1} sectionSize={2} />
                 <Scene
@@ -152,6 +160,8 @@ function render({ model }) {
                     displayAxes={axesVisible}
                     axesBoundingBox={axesBoundingBox}
                     dataBoundingBox={dataBoundingBox}
+                    axesLabelDistance={axesLabelDistance}
+                    axesFontSize={axesFontSize}
                     boolTargetRef={boolTargetRef}
                 />
                 {renderedObjects}

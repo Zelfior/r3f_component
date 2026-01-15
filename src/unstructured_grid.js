@@ -14,6 +14,8 @@ function UnstructuredGridData({
     names,
     hoveredName,
     setRegionInfo,
+    edgesVisible,
+    opacity
 }) {
     console.log("Displaying unstructured grid, cell count : ", indices.length);
 
@@ -120,11 +122,15 @@ function UnstructuredGridData({
                     vertexColors 
                     emissiveIntensity={20.5}
                     transparent 
-                    opacity={0.5}  
+                    opacity={opacity}  
                 />
             </mesh>
             <lineSegments geometry={mergedEdges}>
-                <lineBasicMaterial vertexColors linewidth={1} />
+                <lineBasicMaterial 
+                    vertexColors 
+                    linewidth={1} 
+                    transparent
+                    opacity={edgesVisible} />
             </lineSegments>
         </group>
     );

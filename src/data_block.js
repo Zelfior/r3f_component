@@ -14,6 +14,8 @@ function MultiBlockData({
     names,
     hoveredName,
     setRegionInfo,
+    edgesVisible,
+    opacity
 }) {
 
     const mergedData = useMemo(() => {
@@ -111,6 +113,9 @@ function MultiBlockData({
         setRegionInfo(regionMap);
     }
 
+    console.log("Edge visible", edgesVisible);
+    console.log("opacity", opacity);
+
     return (
         <group>
             <mesh geometry={geometry}>
@@ -119,11 +124,15 @@ function MultiBlockData({
                     vertexColors 
                     emissiveIntensity={20.5}
                     transparent 
-                    opacity={0.5}  
+                    opacity={opacity}  
                 />
             </mesh>
             <lineSegments geometry={mergedEdges}>
-                <lineBasicMaterial vertexColors linewidth={1} />
+                <lineBasicMaterial vertexColors 
+                    linewidth={1}
+                    transparent
+                    opacity={Number(edgesVisible)} 
+                />
             </lineSegments>
         </group>
     );
