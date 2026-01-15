@@ -155,7 +155,7 @@ function render({ model }) {
                     boolTargetRef={boolTargetRef}
                 />
                 {renderedObjects}
-                <Stats />
+                {/* <Stats /> */}
             </Canvas>
             <HoverTool
                 hoveredCell={hoveredCell}

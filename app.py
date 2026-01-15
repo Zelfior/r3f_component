@@ -8,30 +8,15 @@ import numpy as np
 import pyvista as pv
 
 from scivianna.data.data3d import Data3D
-
+from scivianna.utils.color_tools import color_maps, interpolate_cmap_at_values
 from panel.custom import ReactComponent
 
 pn.extension()
 
 
-def get_rd_bu(values, html=False):
-    """Return a red-blue colormap with n colors."""
-    import matplotlib
-
-    cmap = matplotlib.colormaps["RdBu"]
-    rgba_colors = cmap(values)
-    if not html:
-        return rgba_colors
-    html_colors = [matplotlib.colors.rgb2hex(rgba[:3]) for rgba in rgba_colors]
-    return html_colors
-
-
 @dataclass
 class PyvistaData:
     def to_dict(self):
-        raise NotImplementedError()
-
-    def slice(self, normal: List[float], origin: List[float]):
         raise NotImplementedError()
 
 
@@ -88,17 +73,6 @@ class MultiBlockData(PyvistaData):
             "type": "MultiBlock",
         }
 
-    def slice(self, normal, origin):
-        return MultiBlockData(
-            multi_block=self.multi_block.clip(
-                normal=normal, origin=origin
-            ).as_polydata_blocks(),
-            colors=self.colors,
-            edge_colors=self.edge_colors,
-            values=self.values,
-            names=self.names,
-        )
-
 
 @dataclass
 class Data3DData(PyvistaData):
@@ -149,16 +123,13 @@ class Data3DData(PyvistaData):
         return {
             "vertices": per_cell_verts,
             "indices": per_cell_faces,
-            "colors": (np.array(self.data.cell_colors)/255).tolist(),
-            "edge_colors": (np.array(self.data.cell_edge_colors)/255).tolist(),
+            "colors": (np.array(self.data.cell_colors) / 255).tolist(),
+            "edge_colors": (np.array(self.data.cell_edge_colors) / 255).tolist(),
             "values": self.data.cell_values,
             "names": self.data.cell_ids,
             "axes_data_box": axes_data_box,
             "type": "MultiBlock",
         }
-
-    def slice(self, normal, origin):
-        raise NotImplementedError()
 
 
 @dataclass
@@ -237,15 +208,6 @@ class UnstructuredGridData(PyvistaData):
             "type": "MultiBlock",
         }
 
-    def slice(self, normal, origin):
-        return UnstructuredGridData(
-            grid=self.grid.clip(normal=normal, origin=origin),
-            colors=self.colors,
-            edge_colors=self.edge_colors,
-            values=self.values,
-            names=self.names,
-        )
-
 
 class ReactThreeFiber(ReactComponent):
 
@@ -293,7 +255,6 @@ class ReactThreeFiber(ReactComponent):
         super().__init__(*args, **kwargs)
 
         self.data_to_plot: List[PyvistaData] = []
-        self.sliced_data_to_plot: List[PyvistaData] = []
 
         self.param.watch(self.updated_matrix, "matrix")
 
@@ -335,15 +296,6 @@ class ReactThreeFiber(ReactComponent):
                 names=names,
             )
         )
-        self.sliced_data_to_plot.append(
-            MultiBlockData(
-                multi_block=multi_block,
-                colors=colors,
-                edge_colors=edge_colors,
-                values=values,
-                names=names,
-            )
-        )
 
         self.updata_data()
 
@@ -364,15 +316,6 @@ class ReactThreeFiber(ReactComponent):
                 names=names,
             )
         )
-        self.sliced_data_to_plot.append(
-            UnstructuredGridData(
-                grid=grid,
-                colors=colors,
-                edge_colors=edge_colors,
-                values=values,
-                names=names,
-            )
-        )
 
         self.updata_data()
 
@@ -385,12 +328,6 @@ class ReactThreeFiber(ReactComponent):
                 data=data
             )
         )
-        self.sliced_data_to_plot.append(
-            Data3DData(
-                data=data
-            )
-        )
-
         self.updata_data()
 
     def updated_matrix(self, _):
@@ -401,18 +338,11 @@ class ReactThreeFiber(ReactComponent):
 
         return
 
-        # for element in self.data_to_plot:
-        #     self.sliced_data_to_plot.append(
-        #         element.slice(normal=y_vector, origin=location)
-        #     )
-
-        # self.updata_data()
-
     @pn.io.hold()
     def updata_data(
         self,
     ):
-        self.data_dict = [d.to_dict() for d in self.sliced_data_to_plot]
+        self.data_dict = [d.to_dict() for d in self.data_to_plot]
 
         if len(self.data_dict) == 0:
             return
@@ -508,7 +438,7 @@ if __name__ == "__main__":
     values = np.max(arr, axis=1) * np.sum(arr, axis=1)
     values /= max(values)
 
-    colors = get_rd_bu(values)[:, :3]
+    colors = interpolate_cmap_at_values(values, "RdBu")[:, :3]
     flat_colors = colors.flatten()
     edge_colors = np.where(flat_colors - 0.2 < 0, 0, flat_colors - 0.2).reshape(
         colors.shape
@@ -529,7 +459,7 @@ if __name__ == "__main__":
     )
 
     rtf.display_color_bar(
-        color_map_colors=get_rd_bu(np.linspace(0, 1, 11), html=True),
+        color_map_colors=color_maps["BuRd"],
         color_bar_bounds=(0, count - 1),
     )
 
